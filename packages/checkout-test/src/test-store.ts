@@ -23,6 +23,8 @@ export interface TestStoreOptions {
   checkoutPagePosts?: boolean;
   /** Add to cart shows no message and doesn't update the cart count. */
   silentAdd?: boolean;
+  /** Color swatches (hidden radio inputs with clickable labels) instead of a size dropdown. */
+  swatches?: boolean;
 }
 
 export interface TestStore {
@@ -59,7 +61,8 @@ const PRODUCTS = [
 const ADD_SCRIPT = `
   const size = document.getElementById("size");
   const msg = document.getElementById("msg");
-  if (!size.value) { msg.textContent = "Choose a size first."; return; }
+  const color = document.querySelector("input[name=color]:checked");
+  if (document.querySelector("input[name=color]") ? !color : !size.value) { msg.textContent = "Choose an option first."; return; }
   fetch("/cart/add.js?return_to=/discard", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: 1, quantity: 1 }) })
     .then(r => r.json())
     .then(cart => {
@@ -96,7 +99,14 @@ function render(path: string, query: URLSearchParams, opts: TestStoreOptions): s
   const product = PRODUCTS.find(p => path === `/products/${p.handle}`);
   if (product) {
     const label = opts.unlabeledSize ? "" : `<label for="size">Size</label>`;
-    const size = `${label}<select id="size" name="size"><option value="">Choose…</option><option>S</option><option>M</option><option>L</option></select>`;
+    const size = opts.swatches
+      ? `<fieldset><legend>Color</legend>${["Pine", "Slate", "Ember"]
+          .map(
+            c =>
+              `<input type="radio" name="color" id="color-${c}" value="${c}" style="position:absolute;opacity:0;width:1px;height:1px"><label for="color-${c}" style="display:inline-block;padding:6px 12px;border:1px solid #999;border-radius:16px;margin:4px;cursor:pointer">${c}</label>`
+          )
+          .join("")}</fieldset><input type="hidden" id="size" value="">`
+      : `${label}<select id="size" name="size"><option value="">Choose…</option><option>S</option><option>M</option><option>L</option></select>`;
     const add = opts.noAddToCart
       ? `<p>Available in stores.</p>`
       : `<button id="add" type="button" onclick='(function(){const SILENT=${opts.silentAdd ? "true" : "false"};${ADD_SCRIPT}})()'>Add to cart</button><p id="msg" role="status"></p>`;

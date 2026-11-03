@@ -1,6 +1,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { classifyOrder, loadSignatures } from "../src/classify.ts";
+import { classifyOrder } from "../src/classify.ts";
+import { loadSignatures } from "../src/signatures-file.ts";
 import { discoverCandidates } from "../src/discover.ts";
 import { buildReport } from "../src/report.ts";
 import type { Order, Visit } from "../src/types.ts";

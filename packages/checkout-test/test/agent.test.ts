@@ -161,6 +161,15 @@ test("a video folder that can't be created fails fast instead of hanging", async
   }
 });
 
+test("swatch pickers with hidden radio inputs are chosen through their labels", async () => {
+  const { result, hits } = await run({ swatches: true });
+  const choose = result.steps.find(s => s.title === "Choose options")!;
+  assert.equal(choose.status, "passed");
+  assert.match(choose.detail, /Chose Color Pine/);
+  assert.equal(result.result, "reached_checkout");
+  assert.ok(hits.includes("POST /cart/add.js"));
+});
+
 test("an unreachable store fails at the first step", async () => {
   const store = await startTestStore();
   const url = store.url;

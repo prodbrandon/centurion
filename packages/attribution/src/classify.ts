@@ -1,13 +1,4 @@
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { SignatureFileSchema, type Attribution, type Evidence, type Order, type Signature, type SignatureFile, type Visit } from "./types.ts";
-
-const here = dirname(fileURLToPath(import.meta.url));
-
-export function loadSignatures(path = process.env.AI_SIGNATURES ?? resolve(here, "..", "data", "signatures.json")): SignatureFile {
-  return SignatureFileSchema.parse(JSON.parse(readFileSync(path, "utf8")));
-}
+import type { Attribution, Evidence, Order, Signature, Visit } from "./types.ts";
 
 function hostOf(url: string | null | undefined): string | null {
   if (!url) return null;

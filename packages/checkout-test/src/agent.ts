@@ -229,9 +229,42 @@ export async function runCheckoutAgent(opts: CheckoutAgentOptions): Promise<Chec
     await step("Choose options", async () => {
       const selects = page.locator("main select, form select, select");
       const n = await selects.count();
-      if (n === 0) return { status: "passed", detail: "No options to choose." };
       const unlabeled: string[] = [];
       const chosen: string[] = [];
+      // Swatch pickers: radio groups, often with the input hidden behind a clickable label.
+      const groups = await page.locator('input[type="radio"]').evaluateAll((els: Element[]) => {
+        const byName = new Map<string, { name: string; legend: string; checked: boolean; options: { id: string; value: string }[] }>();
+        for (const el of els as HTMLInputElement[]) {
+          if (!el.name) continue;
+          const g = byName.get(el.name) ?? {
+            name: el.name,
+            legend:
+              el.closest("fieldset")?.querySelector("legend")?.textContent?.trim() ||
+              el.closest('[role="radiogroup"]')?.getAttribute("aria-label") ||
+              "",
+            checked: false,
+            options: []
+          };
+          g.checked ||= el.checked;
+          if (!el.disabled) g.options.push({ id: el.id, value: el.value });
+          byName.set(el.name, g);
+        }
+        return [...byName.values()];
+      });
+      for (const g of groups) {
+        if (g.checked) {
+          chosen.push(`${g.legend || g.name} (already set)`);
+          continue;
+        }
+        const first = g.options[0];
+        if (!first) throw new Blocked(`Every ${g.legend || g.name} option is unavailable.`, "Check the product has an option in stock.");
+        const label = first.id ? page.locator(`label[for="${first.id}"]`) : null;
+        if (label && (await label.count()) > 0 && (await label.first().isVisible())) await label.first().click();
+        else await page.locator(`input[type="radio"][name="${g.name}"][value="${first.value}"]`).check({ force: true });
+        if (!g.legend) unlabeled.push(g.name);
+        chosen.push(`${g.legend || g.name} ${first.value}`);
+      }
+      if (n === 0 && groups.length === 0) return { status: "passed", detail: "No options to choose." };
       for (let i = 0; i < n; i++) {
         const sel = selects.nth(i);
         if (!(await sel.isVisible())) continue;

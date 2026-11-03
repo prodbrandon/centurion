@@ -82,5 +82,4 @@ On start the container runs `prisma generate && prisma migrate deploy` (prepare 
 - Answer Check on a live store checks prices, stock, banned claims and the spec facts in `centurion.facts`. Store policies are only checked on the demo catalog until they are read from Shopify.
 - Weekly Fix on a live store acts on the spec facts in `centurion.facts`. A store without them gets no fix and sees the demo example.
 - Answer Check runs inside the request (5 products, 3 questions each, 3 at a time), so expect it to take tens of seconds.
-
 - `customerJourneySummary` parsing has not yet been run against production order data.

@@ -46,6 +46,10 @@ npx tsx src/cli.ts promote --id mistral --label "Le Chat" --vendor Mistral --hos
 
 Live fetches get an Admin API access token through the client credentials grant (`packages/core/src/shopify-auth.ts`). The app must be in the same Shopify organization as the store and installed on it. Tokens last about 24 hours and are refreshed automatically, so a long fetch keeps working across an expiry.
 
+## Files
+
+`src/classify.ts` is the classifier; `src/signatures-file.ts` reads a signature file from disk for the CLI and tests, kept apart so apps that bundle the classifier don't trace a runtime file path.
+
 ## Known limits
 
 - Clicks from Google AI Overviews and AI Mode look like ordinary Google search in order data.

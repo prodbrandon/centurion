@@ -30,10 +30,10 @@ npm run test-page -- --write-sample ../core/src/checkout-sample.ts --no-video
 | File | What it does |
 | --- | --- |
 | `src/agent.ts` | The worker: steps, payment guard, video |
-| `src/test-store.ts` | Local practice store with switchable flaws (popup, unlabeled size picker, no search, no add-to-cart, silent add-to-cart, and hostile checkout buttons and pages) |
+| `src/test-store.ts` | Local practice store with switchable flaws (popup, unlabeled size picker, color swatches, no search, no add-to-cart, silent add-to-cart, and hostile checkout buttons and pages) |
 | `src/cli.ts` | Command line runner |
 
 ## Known limits
 
-- Scripted agent: it handles common theme markup (search box, product links, `select` pickers, "Add to cart", "Check out"). Swatch buttons and custom pickers are not chosen yet.
+- Scripted agent: it handles common theme markup (search box, product links, `select` pickers, radio swatches including hidden inputs with clickable labels, "Add to cart", "Check out"). Button-only pickers without radio inputs are not chosen yet.
 - Runs locally or wherever Chromium is available. The Shopify app shows stored runs; it does not start a browser itself.
