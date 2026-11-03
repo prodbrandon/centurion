@@ -1,33 +1,47 @@
 // Bridge between the Shopify app and @centurion/core. Everything that counts or stores
 // data goes through core, so the web app sees exactly what this app writes.
 import {
+  applyFix,
   buildQuestions,
   createAnswerProviders,
   DEMO_NORTHPINE_CATALOG,
+  DEMO_SALES_SNAPSHOT,
+  explainFix,
   failStaleRuns,
   fetchOrdersWith,
   fetchShopCatalog,
   findings,
   getDb,
   isMetaLive,
+  latestFix,
   latestReportRun,
   loadLatestAnswerCheck,
   loadLatestCheckoutRun,
   loadLatestView,
+  markFixUndone,
+  measureFix,
   META_DEFAULT_MODEL,
   REPORT_DAYS,
   retryingRunner,
   RunInProgressError,
   runAnswerCheck,
   saveAnswerCheck,
+  saveAppliedFix,
+  shopifyProductAdmin,
   startReportJob,
+  storeWritesEnabled,
+  suggestFix,
   TEST_PAGE_CHECKOUT_RUN,
+  undoFix,
   type AiSalesView,
   type AnswerCheckRun,
   type AnswerResult,
   type CheckoutRunResult,
+  type FixMeasurement,
+  type FixSuggestion,
   type GraphqlRunner,
-  type RunStatus
+  type RunStatus,
+  type StoredFix
 } from "@centurion/core/server";
 
 type AdminGraphql = (query: string, options?: { variables?: Record<string, unknown> }) => Promise<Response>;
@@ -209,4 +223,92 @@ export async function checkoutTestState(shop: string): Promise<CheckoutTestState
     }
   }
   return { run: TEST_PAGE_CHECKOUT_RUN, source: "test_page_sample" };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Weekly Fix
+// ---------------------------------------------------------------------------------------------
+
+export type WeeklyFixState = {
+  /** Apply and undo change the live store only when CENTURION_STORE_WRITES=on. */
+  writesEnabled: boolean;
+  /** This store's fix, chosen from its own stored AI Sales report and live Answer Check. */
+  suggestion: FixSuggestion | null;
+  /** Why there is no fix for this store this week. */
+  reason?: string;
+  /** The same rule on the fictional Northpine demo data, shown when this store has no fix. */
+  demo: { suggestion: FixSuggestion; before: string } | null;
+  current: StoredFix | null;
+  measurement: FixMeasurement | null;
+  error?: string;
+};
+
+/** The store's own fix: needs a stored AI Sales report, a stored live Answer Check and the product catalog. */
+async function liveSuggestion(shop: string, graphql: AdminGraphql): Promise<{ suggestion: FixSuggestion | null; reason?: string }> {
+  const db = getDb();
+  if (!db) return { suggestion: null, reason: "The database is not connected." };
+  const view = await loadLatestView(db, shop);
+  if (!view) return { suggestion: null, reason: "Run an AI Sales report first: the fix is chosen from the products AI sells." };
+  const answerCheck = isMetaLive(process.env) ? await loadLatestAnswerCheck(db, shop) : null;
+  if (!answerCheck) return { suggestion: null, reason: "Run a live Answer Check first (it needs META_API_KEY): the fix targets what AI gets wrong." };
+  const catalog = await fetchShopCatalog(runnerFor(graphql), { bestSellers: view.report.top_products.map(p => p.title) });
+  const suggestion = suggestFix({ sales: view.report, answerCheck, catalog });
+  if (!suggestion) return { suggestion: null, reason: "AI got no catalog facts wrong about the products it sells. Nothing to fix this week." };
+  return { suggestion: await explainFix(suggestion) };
+}
+
+async function demoSuggestion(): Promise<WeeklyFixState["demo"]> {
+  const answerCheck = await runAnswerCheck({ catalog: DEMO_NORTHPINE_CATALOG, providers: createAnswerProviders({}) });
+  const suggestion = suggestFix({ sales: DEMO_SALES_SNAPSHOT, answerCheck, catalog: DEMO_NORTHPINE_CATALOG });
+  if (!suggestion) return null;
+  const before = DEMO_NORTHPINE_CATALOG.products.find(p => p.id === suggestion.productId)?.description ?? "";
+  return { suggestion, before };
+}
+
+export async function weeklyFixState(shop: string, graphql: AdminGraphql): Promise<WeeklyFixState> {
+  const writesEnabled = storeWritesEnabled(process.env);
+  const db = getDb();
+  let live: { suggestion: FixSuggestion | null; reason?: string };
+  let error: string | undefined;
+  try {
+    live = await liveSuggestion(shop, graphql);
+  } catch (e) {
+    console.error("Choosing this week's fix failed", e);
+    live = { suggestion: null, reason: "This week's fix couldn't be chosen." };
+    error = runErrorMessage(e);
+  }
+  const current = db ? await latestFix(db, shop).catch(() => null) : null;
+  const view = db && current?.status === "applied" ? await loadLatestView(db, shop).catch(() => null) : null;
+  // Measure only with a report generated after the fix went live.
+  const measurement = current && view && view.generatedAt > current.appliedAt ? measureFix(current.baseline, view) : null;
+  return {
+    writesEnabled,
+    suggestion: live.suggestion,
+    reason: live.reason,
+    demo: live.suggestion ? null : await demoSuggestion(),
+    current,
+    measurement,
+    error
+  };
+}
+
+/** Applies this week's fix to the store. The suggestion is chosen again here; nothing from the browser is trusted. */
+export async function applyWeeklyFix(shop: string, graphql: AdminGraphql) {
+  const db = getDb();
+  if (!db) throw new Error("The database is not connected. Set DATABASE_URL and restart the app.");
+  const { suggestion, reason } = await liveSuggestion(shop, graphql);
+  if (!suggestion) throw new Error(reason ?? "There is no fix to apply this week.");
+  const applied = await applyFix(shopifyProductAdmin(runnerFor(graphql)), suggestion, { writesEnabled: storeWritesEnabled(process.env) });
+  return { id: await saveAppliedFix(db, { domain: shop }, applied) };
+}
+
+/** Undoes the store's applied fix, unless the description was edited since. */
+export async function undoWeeklyFix(shop: string, graphql: AdminGraphql) {
+  const db = getDb();
+  if (!db) throw new Error("The database is not connected. Set DATABASE_URL and restart the app.");
+  const current = await latestFix(db, shop);
+  if (!current || current.status !== "applied") throw new Error("There is no applied fix to undo.");
+  await undoFix(shopifyProductAdmin(runnerFor(graphql)), current, { writesEnabled: storeWritesEnabled(process.env) });
+  await markFixUndone(db, current.id);
+  return { id: current.id };
 }

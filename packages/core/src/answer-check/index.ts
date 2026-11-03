@@ -17,4 +17,4 @@ export {
   type ProviderEnv
 } from "./providers.ts";
 export { findings, runAnswerCheck } from "./run.ts";
-export { fetchShopCatalog, parseClaims, productFromNode, CATALOG_QUERY } from "./shopify-catalog.ts";
+export { fetchShopCatalog, parseClaims, parseFacts, productFromNode, CATALOG_QUERY } from "./shopify-catalog.ts";

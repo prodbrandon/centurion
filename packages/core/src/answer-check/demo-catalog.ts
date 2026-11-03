@@ -10,6 +10,7 @@ export const DEMO_NORTHPINE_CATALOG: Catalog = {
     {
       id: "NP-TH2",
       title: "Trailhead 2 Down Jacket",
+      description: "Our warmest packable jacket, ready for any weather.",
       price: { amount: 229, currency: "USD", source: { system: "shopify", ref: "product price", updated: "2026-08-01" } },
       stock: { inStock: true, source: { system: "shopify", ref: "inventory", updated: "2026-10-23" } },
       facts: [
@@ -24,6 +25,7 @@ export const DEMO_NORTHPINE_CATALOG: Catalog = {
     {
       id: "NP-RB45",
       title: "Ridgeback 45L Pack",
+      description: "A 45-liter pack that carries like a daypack, for long weekends on the trail.",
       price: { amount: 189, currency: "USD", source: { system: "shopify", ref: "product price", updated: "2026-05-10" } },
       stock: { inStock: true, source: { system: "shopify", ref: "inventory", updated: "2026-10-23" } },
       facts: [
@@ -37,6 +39,7 @@ export const DEMO_NORTHPINE_CATALOG: Catalog = {
     {
       id: "NP-CM2",
       title: "Cedar Merino Base Layer",
+      description: "Soft merino for cold mornings and long days on the move.",
       price: { amount: 89, currency: "USD", source: { system: "shopify", ref: "product price", updated: "2026-02-01" } },
       stock: { inStock: false, source: { system: "shopify", ref: "inventory", updated: "2026-10-23" } },
       facts: [

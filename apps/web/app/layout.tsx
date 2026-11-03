@@ -46,7 +46,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             {sales.view
               ? `AI Sales numbers come from the Centurion engine (AI source list v${sales.view.signaturesVersion}). `
               : ""}
-            Screens marked Preview show sample results for features being built Oct 26 to Nov 4, 2026.
+            Answer Check, Checkout Test and Weekly Fix label their demo, fixture and test-page data on each screen.
           </footer>
         </div>
       </body>

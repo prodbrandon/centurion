@@ -16,6 +16,8 @@ export interface CatalogFact {
 export interface CatalogProduct {
   id: string;
   title: string;
+  /** Product description as plain text, when known. */
+  description?: string;
   /** amount is the lowest option price; max the highest when options differ. */
   price?: { amount: number; max?: number; currency: string; source: CatalogSource };
   /** Undefined when the store does not track stock for this product. */

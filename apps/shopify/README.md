@@ -11,7 +11,7 @@ All classification and storage goes through `@centurion/core` (`packages/core`),
 | AI Sales | `/app` | Live. **Run report** starts a background run that fetches the last 60 days of orders (retrying throttled pages), classifies them and stores the run in Postgres. The screen shows the run's progress and renders the result when it is done. |
 | Checkout Test | `/app/checkout-test` | The store's latest checkout agent run from `checkout_runs`, run with `packages/checkout-test`. Until the store is tested it shows the latest test-page run, labeled as such. |
 | Answer Check | `/app/answer-check` | Live with `META_API_KEY`: **Ask Meta Llama now** asks Llama about the store's products (AI best sellers first), compares each answer with the catalog by fixed rules and stores the run. Without a key it shows a fixture run on the Northpine demo catalog, labeled as sample answers. |
-| Weekly Fix | `/app/weekly-fix` | Preview. Apply and undo do not change the store. |
+| Weekly Fix | `/app/weekly-fix` | Chooses this store's fix from its stored AI Sales report, its latest live Answer Check and its catalog, by a fixed rule. Apply and undo use the Admin API (`productUpdate`) and record before/after and holdouts in `weekly_fixes`; they stay disabled until `CENTURION_STORE_WRITES=on` and `write_products` are set. With no fix for the store, it shows the rule's result on the demo store, labeled. |
 
 ## Webhooks
 
@@ -73,13 +73,14 @@ On start the container runs `prisma generate && prisma migrate deploy` (prepare 
 ## Answer Check setup
 
 - `META_API_KEY`: a Llama API key. When it is set, Answer Check calls Meta Llama live; nothing else changes. Optional `META_MODEL` (default `Llama-4-Maverick-17B-128E-Instruct-FP8`) and `META_API_BASE_URL` (default `https://api.llama.com/v1`).
-- Banned and approved claims per product come from the product metafields `centurion.prohibited_claims` and `centurion.approved_claims` (a list of single-line text, or comma-separated text). Prices and stock come from the product itself.
+- Banned and approved claims per product come from the product metafields `centurion.prohibited_claims` and `centurion.approved_claims` (a list of single-line text, or comma-separated text). Spec facts come from `centurion.facts`, a JSON metafield such as `{"weight": "1.3 kg", "material": "100% merino wool"}`. Prices and stock come from the product itself.
 - Apply `../../supabase/migrations/20261103010000_answer_checks.sql`. Live runs are stored in `answer_checks`; fixture runs are never stored.
 
 ## Known limits
 
 - Report runs execute in the app's Node process, one at a time per store (a second **Run report** follows the run already going). A running report records a heartbeat as pages arrive; if the process restarts mid-run, the run is marked failed once it has made no progress for 10 minutes, and can be started again. Run a single instance, or move runs to a queue before scaling out. Apply `../../supabase/migrations/20261103020000_report_run_heartbeat.sql`.
-- Answer Check on a live store checks prices, stock and banned claims. Spec facts (weights, materials) and store policies are only checked on the demo catalog until they are read from Shopify.
+- Answer Check on a live store checks prices, stock, banned claims and the spec facts in `centurion.facts`. Store policies are only checked on the demo catalog until they are read from Shopify.
+- Weekly Fix on a live store acts on the spec facts in `centurion.facts`. A store without them gets no fix and sees the demo example.
 - Answer Check runs inside the request (5 products, 3 questions each, 3 at a time), so expect it to take tens of seconds.
 
 - `customerJourneySummary` parsing has not yet been run against production order data.

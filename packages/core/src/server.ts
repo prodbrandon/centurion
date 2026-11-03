@@ -8,3 +8,5 @@ export * from "./shopify-auth.ts";
 export type { Order, SignatureFile } from "../../attribution/src/types.ts";
 export * from "./answer-check/index.ts";
 export * from "./jobs.ts";
+export * from "./weekly-fix.ts";
+export { DEMO_SALES_SNAPSHOT } from "./demo-sales.ts";

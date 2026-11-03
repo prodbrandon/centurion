@@ -6,7 +6,7 @@ Shared data layer for `apps/shopify` and `apps/web`. It builds the AI Sales view
 
 | Import | Safe in the browser | Contents |
 | --- | --- | --- |
-| `@centurion/core` | Yes | View types, display wording, Preview fixtures |
+| `@centurion/core` | Yes | View and feature types, display wording, the committed test-page checkout run |
 | `@centurion/core/server` | No | View builder, Postgres store (save run, load latest view, uninstall, redact), Shopify fetch, Admin API tokens (`getShopifyToken`), AI Answer Check |
 
 ## AI Answer Check (`src/answer-check/`)
@@ -23,6 +23,10 @@ Asks AI assistants the questions shoppers ask about a store and flags answers th
 | `demo-catalog.ts` | The fictional Northpine catalog, mirroring `apps/gateway/data/rulebook.json` |
 
 `saveAnswerCheck` and `loadLatestAnswerCheck` store runs in the `answer_checks` table.
+
+## Weekly Fix (`src/weekly-fix.ts`)
+
+`suggestFix({ sales, answerCheck, catalog })` is the rule: among products AI already sells, the one with the most AI revenue that Answer Check found a banned claim or wrong spec fact on gets the catalog's own facts added to the top of its description; the next two AI sellers are holdouts. `explainFix` lets Meta Llama reword the explanation (kept only if it keeps the numbers), never the choice. `applyFix` and `undoFix` work through a `ProductAdmin` interface (`shopifyProductAdmin` uses `productUpdate`), refuse to run unless `CENTURION_STORE_WRITES=on`, and undo refuses to overwrite later edits. `measureFix` compares the product's AI revenue per day with its holdouts' (difference in differences). `saveAppliedFix`, `latestFix` and `markFixUndone` store fixes in `weekly_fixes`. `DEMO_SALES_SNAPSHOT` is the demo report's numbers for showing the rule on demo data.
 
 ## Checkout test runs
 

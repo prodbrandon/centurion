@@ -10,6 +10,7 @@ import type { Attribution, Order, SignatureFile } from "../../attribution/src/ty
 import { currentSignatures } from "./signatures.ts";
 import type { AnswerCheckRun } from "./answer-check/types.ts";
 import type { CheckoutRunResult } from "./checkout-types.ts";
+import type { AppliedFix, FixBaseline, FixSuggestion } from "./weekly-fix.ts";
 import type { AiSalesView } from "./types.ts";
 import { assembleView, canonicalOrders } from "./view.ts";
 
@@ -453,4 +454,58 @@ export async function checkoutFailureCounts(db: Queryable): Promise<{ failureKin
      group by failure_kind order by runs desc, failure_kind`
   );
   return rows.map(r => ({ failureKind: r.failure_kind, runs: Number(r.runs) }));
+}
+
+export interface StoredFix extends AppliedFix {
+  id: string;
+  status: "applied" | "undone";
+  undoneAt: string | null;
+}
+
+/** Records an applied fix. */
+export async function saveAppliedFix(db: Queryable, shop: ShopInfo, fix: AppliedFix): Promise<string> {
+  const shopId = await upsertShop(db, shop);
+  const [row] = await db.query<{ id: string }>(
+    `insert into weekly_fixes (shop_id, fix_key, product_id, product_title, status, suggestion, before_html, after_html, baseline, applied_at)
+     values ($1, $2, $3, $4, 'applied', $5::text::jsonb, $6, $7, $8::text::jsonb, $9) returning id`,
+    [shopId, fix.suggestion.key, fix.suggestion.productId, fix.suggestion.productTitle, json(fix.suggestion), fix.beforeHtml, fix.afterHtml, json(fix.baseline), fix.appliedAt]
+  );
+  return row!.id;
+}
+
+/** Marks an applied fix as undone. Returns false if it wasn't applied (already undone or unknown). */
+export async function markFixUndone(db: Queryable, fixId: string, now: Date = new Date()): Promise<boolean> {
+  const rows = await db.query(`update weekly_fixes set status = 'undone', undone_at = $2 where id = $1 and status = 'applied' returning id`, [fixId, now.toISOString()]);
+  return rows.length > 0;
+}
+
+/** The shop's most recent fix, applied or undone. */
+export async function latestFix(db: Queryable, shopDomain: string): Promise<StoredFix | null> {
+  const [row] = await db.query<{
+    id: string;
+    status: StoredFix["status"];
+    suggestion: FixSuggestion | string;
+    before_html: string;
+    after_html: string;
+    baseline: FixBaseline | string;
+    applied_at: Date | string;
+    undone_at: Date | string | null;
+  }>(
+    `select f.id, f.status, f.suggestion, f.before_html, f.after_html, f.baseline, f.applied_at, f.undone_at
+     from weekly_fixes f join shops s on s.id = f.shop_id
+     where s.shop_domain = $1 and s.uninstalled_at is null order by f.applied_at desc limit 1`,
+    [shopDomain]
+  );
+  if (!row) return null;
+  const parse = <T>(v: T | string): T => (typeof v === "string" ? (JSON.parse(v) as T) : v);
+  return {
+    id: row.id,
+    status: row.status,
+    suggestion: parse(row.suggestion),
+    beforeHtml: row.before_html,
+    afterHtml: row.after_html,
+    baseline: parse(row.baseline),
+    appliedAt: new Date(row.applied_at).toISOString(),
+    undoneAt: row.undone_at ? new Date(row.undone_at).toISOString() : null
+  };
 }

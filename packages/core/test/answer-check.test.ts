@@ -19,6 +19,7 @@ import {
   loadLatestAnswerCheck,
   META_DEFAULT_MODEL,
   parseClaims,
+  parseFacts,
   runAnswerCheck,
   saveAnswerCheck,
   type AnswerProvider,
@@ -309,6 +310,12 @@ test("a Shopify catalog puts best sellers first and reads banned claims from met
   assert.equal(catalog.products[0]!.stock!.inStock, false);
   assert.equal(catalog.products[1]!.price!.amount, 49);
   assert.deepEqual(parseClaims("odor-proof, antibacterial"), ["odor-proof", "antibacterial"]);
+  assert.deepEqual(parseFacts('{"Weight": "1.3 kg", "torso fit": "16 to 21 inches", "bad": {}}'), [
+    { attribute: "weight", value: "1.3 kg" },
+    { attribute: "torso_fit", value: "16 to 21 inches" }
+  ]);
+  assert.deepEqual(parseFacts('[{"attribute":"material","value":"100% merino"}]'), [{ attribute: "material", value: "100% merino" }]);
+  assert.deepEqual(parseFacts("not json"), []);
 });
 
 async function freshDb(): Promise<Queryable> {

@@ -1,6 +1,7 @@
 // Builds an Answer Check catalog from a live Shopify store through the Admin GraphQL API
 // (needs the read_products scope). Banned and approved claims are read from the product
-// metafields centurion.prohibited_claims and centurion.approved_claims (list of text, or comma-separated text).
+// metafields centurion.prohibited_claims and centurion.approved_claims (list of text, or comma-separated text),
+// and spec facts from centurion.facts (a JSON object such as {"weight": "1.3 kg", "material": "100% merino"}).
 import type { GraphqlRunner } from "../../../attribution/src/shopify.ts";
 import type { Catalog, CatalogProduct } from "./types.ts";
 
@@ -18,6 +19,7 @@ export const CATALOG_QUERY = `#graphql
         variants(first: 50) { nodes { inventoryPolicy } }
         prohibited: metafield(namespace: "centurion", key: "prohibited_claims") { value }
         approved: metafield(namespace: "centurion", key: "approved_claims") { value }
+        facts: metafield(namespace: "centurion", key: "facts") { value updatedAt }
       }
     }
   }`;
@@ -32,6 +34,7 @@ interface ProductNode {
   variants?: { nodes: { inventoryPolicy: string }[] };
   prohibited?: { value: string } | null;
   approved?: { value: string } | null;
+  facts?: { value: string; updatedAt?: string } | null;
 }
 
 /** Metafield text: a JSON list ("list.single_line_text_field") or comma-separated text. */
@@ -44,6 +47,21 @@ export function parseClaims(value: string | undefined | null): string[] {
     /* plain text */
   }
   return value.split(",").map(s => s.trim()).filter(Boolean);
+}
+
+/** The centurion.facts metafield: {"weight": "1.3 kg"} or [{"attribute": "weight", "value": "1.3 kg"}]. Anything else gives no facts. */
+export function parseFacts(value: string | undefined | null): { attribute: string; value: string }[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    const pairs: [unknown, unknown][] = Array.isArray(parsed) ? parsed.map(f => [f?.attribute, f?.value]) : Object.entries(parsed ?? {});
+    return pairs
+      .filter((p): p is [string, string | number] => typeof p[0] === "string" && (typeof p[1] === "string" || typeof p[1] === "number"))
+      .map(([attribute, v]) => ({ attribute: attribute.trim().toLowerCase().replace(/\s+/g, "_"), value: String(v).trim() }))
+      .filter(f => f.attribute && f.value);
+  } catch {
+    return [];
+  }
 }
 
 export function productFromNode(n: ProductNode): CatalogProduct {
@@ -59,7 +77,10 @@ export function productFromNode(n: ProductNode): CatalogProduct {
       ? { amount: Number(price.amount), max: max ? Number(max.amount) : undefined, currency: price.currencyCode, source: { system: "shopify", ref: "product price", updated } }
       : undefined,
     stock: n.tracksInventory && n.totalInventory !== null && !sellsWhenOut ? { inStock: n.totalInventory > 0, source: { system: "shopify", ref: "inventory", updated } } : undefined,
-    facts: [],
+    facts: parseFacts(n.facts?.value).map(f => ({
+      ...f,
+      source: { system: "shopify", ref: `metafield centurion.facts.${f.attribute}`, updated: n.facts?.updatedAt?.slice(0, 10) ?? updated }
+    })),
     approvedClaims: parseClaims(n.approved?.value),
     prohibitedClaims: parseClaims(n.prohibited?.value)
   };

@@ -1,66 +1,89 @@
-import { weeklyFix } from "@centurion/core";
+import {
+  createAnswerProviders,
+  DEMO_NORTHPINE_CATALOG,
+  explainFix,
+  runAnswerCheck,
+  suggestFix
+} from "@centurion/core/server";
 import { FixActions } from "@/components/FixActions";
 import { getAiSales, money } from "@/lib/data";
 
 export const metadata = { title: "Weekly Fix · Centurion" };
 
+// Rebuilt at most hourly, like Answer Check, so a META_API_KEY added later rewrites the explanation.
+export const revalidate = 3600;
+
+/**
+ * The real Weekly Fix rule on demo data: AI Sales numbers from the demo report and the Answer Check run
+ * on the demo catalog. Apply and undo here change a copy of the description in the browser only.
+ */
 export default async function WeeklyFixPage() {
-  // Real engine number: AI revenue for this product in the report period.
   const { view } = await getAiSales();
-  const sales = view?.report.top_products.find(p => p.title === weeklyFix.product);
+  const answerCheck = await runAnswerCheck({ catalog: DEMO_NORTHPINE_CATALOG, providers: createAnswerProviders(process.env) });
+  const chosen = view ? suggestFix({ sales: view.report, answerCheck, catalog: DEMO_NORTHPINE_CATALOG }) : null;
+  const suggestion = chosen ? await explainFix(chosen) : null;
+
+  if (!suggestion) {
+    return (
+      <div className="stack">
+        <section className="hero">
+          <p className="eyebrow">This week’s fix</p>
+          <p className="hero-number" style={{ fontSize: 32 }}>
+            Nothing to fix this week
+          </p>
+          <p>AI got no catalog facts wrong about the products it sells.</p>
+        </section>
+      </div>
+    );
+  }
+
+  const before = DEMO_NORTHPINE_CATALOG.products.find(p => p.id === suggestion.productId)?.description ?? "";
+  const finding = suggestion.evidence.findings[0]!;
 
   return (
     <div className="stack">
       <section className="hero">
         <p className="eyebrow">This week’s fix</p>
         <p className="hero-number" style={{ fontSize: 32 }}>
-          {weeklyFix.title}
+          Clear up what AI gets wrong about the {suggestion.productTitle}
         </p>
-        <p>One small change, picked from what we found this week. Apply it in one click, undo it any time.</p>
+        <p>One small change, chosen by a fixed rule from this week’s AI Sales and Answer Check results. Apply it in one click, undo it any time.</p>
       </section>
 
-      <span className="preview">Preview · the fix is drafted by Llama in the live version.</span>
+      <span className="preview">
+        Demo store · the rule is real; the answers it reacts to are {answerCheck.mode === "fixture" ? "labeled fixture answers" : "live Meta Llama answers"} about
+        the fictional Northpine catalog. Apply and undo change a copy in your browser, never a real store.
+      </span>
 
       <section className="card">
         <h2>Why this one</h2>
-        {sales ? (
-          <div className="kv">
-            <span>AI is already selling it</span>
-            <span className="num">
-              {money(sales.revenue)} from AI in 90 days ({sales.units} units)
-            </span>
-          </div>
-        ) : null}
         <div className="kv">
-          <span>AI gets a key fact wrong</span>
-          <span>AI says “waterproof”, your lab results say it isn’t</span>
+          <span>AI is already selling it</span>
+          <span className="num">
+            {money(suggestion.evidence.aiRevenue)} from AI in {suggestion.evidence.periodDays} days ({suggestion.evidence.aiUnits} units)
+          </span>
         </div>
         <div className="kv">
-          <span>Risk if left alone</span>
-          <span>Returns from shoppers who bought it for heavy rain</span>
+          <span>AI gets a fact wrong</span>
+          <span>
+            {finding.provider}
+            {answerCheck.mode === "fixture" ? " (fixture)" : ""}: “{finding.said}” Catalog: {finding.truth}
+          </span>
         </div>
+        <div className="kv">
+          <span>Picked because</span>
+          <span>Most AI revenue among products AI gets wrong</span>
+        </div>
+        <p className="sub" style={{ marginTop: 12 }}>
+          {suggestion.explanation}{" "}
+          <span className="muted">({suggestion.explanationBy === "meta" ? "worded by Meta Llama" : "template wording"})</span>
+        </p>
       </section>
 
       <section className="card">
         <h2>The change</h2>
-        <p className="muted">
-          {weeklyFix.product} · {weeklyFix.field}
-        </p>
-        <div className="compare diff">
-          <div className="said">
-            <p className="lbl">Before</p>
-            <p>
-              <del>{weeklyFix.before}</del>
-            </p>
-          </div>
-          <div className="truth">
-            <p className="lbl">After</p>
-            <p>
-              <ins>{weeklyFix.after}</ins>
-            </p>
-          </div>
-        </div>
-        <FixActions holdouts={weeklyFix.holdouts} />
+        <p className="muted">{suggestion.productTitle} · top of the product description</p>
+        <FixActions before={before} addition={suggestion.addition} holdouts={suggestion.holdouts.map(h => h.title)} />
       </section>
     </div>
   );
