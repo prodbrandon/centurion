@@ -26,8 +26,8 @@ supabase/
 
 | Package | Status |
 | --- | --- |
-| `apps/shopify` | **AI Sales** works end to end. Checkout Test, Answer Check and Weekly Fix are labeled Preview and show sample data. |
-| `apps/web` | Demo mode renders real attribution output on 1,500 sample orders. Other screens are labeled Preview. |
+| `apps/shopify` | **AI Sales** works end to end. **Answer Check** asks Meta Llama about the store and checks every answer against the catalog (labeled fixture answers until `META_API_KEY` is set). Checkout Test and Weekly Fix are labeled Preview and show sample data. |
+| `apps/web` | Demo mode renders real attribution output on 1,500 sample orders, and the real Answer Check pipeline on the demo catalog (fixture answers, labeled). Other screens are labeled Preview. |
 | `apps/gateway` | Working MCP server on sample data with development tokens. Not part of the first release. |
 | `packages/attribution` | Classifier, report and signature dataset tooling, with tests. Live Shopify fetch not yet run against production order data. |
 | `packages/core` | View builder and Postgres store, with a round-trip test on an in-process Postgres (PGlite). |

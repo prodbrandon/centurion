@@ -10,7 +10,7 @@ All classification and storage goes through `@centurion/core` (`packages/core`),
 | --- | --- | --- |
 | AI Sales | `/app` | Live. **Run report** fetches the last 60 days of orders, classifies them, stores the run in Postgres and renders it. |
 | Checkout Test | `/app/checkout-test` | Preview, sample data |
-| Answer Check | `/app/answer-check` | Preview, sample data |
+| Answer Check | `/app/answer-check` | Live with `META_API_KEY`: **Ask Meta Llama now** asks Llama about the store's products (AI best sellers first), compares each answer with the catalog by fixed rules and stores the run. Without a key it shows a fixture run on the Northpine demo catalog, labeled as sample answers. |
 | Weekly Fix | `/app/weekly-fix` | Preview. Apply and undo do not change the store. |
 
 ## Webhooks
@@ -44,7 +44,7 @@ All classification and storage goes through `@centurion/core` (`packages/core`),
    shopify app config link
    shopify app dev
    ```
-   Press `p` to open the app in your development store and approve the `read_orders` scope.
+   Press `p` to open the app in your development store and approve the `read_orders` and `read_products` scopes.
 4. In the Partner Dashboard, request **Protected customer data access** (level 1, no PII fields) under the app's API access settings. Shopify can refuse order reads without it.
 
 ## Commands
@@ -70,6 +70,15 @@ docker run -p 3000:3000 --env-file apps/shopify/.env centurion-shopify
 
 On start the container runs `prisma generate && prisma migrate deploy` (prepare the database as in Setup step 2 first), then serves the app on port 3000. It needs `DATABASE_URL`, `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SHOPIFY_APP_URL` and `SCOPES`.
 
+## Answer Check setup
+
+- `META_API_KEY`: a Llama API key. When it is set, Answer Check calls Meta Llama live; nothing else changes. Optional `META_MODEL` (default `Llama-4-Maverick-17B-128E-Instruct-FP8`) and `META_API_BASE_URL` (default `https://api.llama.com/v1`).
+- Banned and approved claims per product come from the product metafields `centurion.prohibited_claims` and `centurion.approved_claims` (a list of single-line text, or comma-separated text). Prices and stock come from the product itself.
+- Apply `../../supabase/migrations/20261103010000_answer_checks.sql`. Live runs are stored in `answer_checks`; fixture runs are never stored.
+
 ## Known limits
+
+- Answer Check on a live store checks prices, stock and banned claims. Spec facts (weights, materials) and store policies are only checked on the demo catalog until they are read from Shopify.
+- Answer Check runs inside the request (5 products, 3 questions each, 3 at a time), so expect it to take tens of seconds.
 
 - `customerJourneySummary` parsing has not yet been run against production order data.

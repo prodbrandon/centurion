@@ -3,3 +3,4 @@
 export * from "./copy.ts";
 export * from "./preview.ts";
 export type * from "./types.ts";
+export type * from "./answer-check/types.ts";

@@ -8,6 +8,7 @@ import postgres from "postgres";
 import { classifyOrders } from "../../attribution/src/classify.ts";
 import type { Attribution, Order, SignatureFile } from "../../attribution/src/types.ts";
 import { currentSignatures } from "./signatures.ts";
+import type { AnswerCheckRun } from "./answer-check/types.ts";
 import type { AiSalesView } from "./types.ts";
 import { assembleView, canonicalOrders } from "./view.ts";
 
@@ -278,4 +279,27 @@ export async function redactOrders(db: Queryable, shopDomain: string, orderIds: 
     [shopDomain, json(gids)]
   );
   return rows.length;
+}
+
+/** Stores an Answer Check run for the shop. Returns the new row id. */
+export async function saveAnswerCheck(db: Queryable, shop: ShopInfo, run: AnswerCheckRun): Promise<string> {
+  const shopId = await upsertShop(db, shop);
+  const [row] = await db.query<{ id: string }>(
+    `insert into answer_checks (shop_id, mode, asked, contradictions, result, created_at)
+     values ($1, $2, $3, $4, $5::text::jsonb, $6) returning id`,
+    [shopId, run.mode, run.asked, run.contradictions, json(run), run.generatedAt]
+  );
+  return row!.id;
+}
+
+/** The shop's latest stored Answer Check, or null. */
+export async function loadLatestAnswerCheck(db: Queryable, shopDomain: string): Promise<AnswerCheckRun | null> {
+  const [row] = await db.query<{ result: AnswerCheckRun | string }>(
+    `select a.result from answer_checks a join shops s on s.id = a.shop_id
+     where s.shop_domain = $1 and s.uninstalled_at is null
+     order by a.created_at desc limit 1`,
+    [shopDomain]
+  );
+  if (!row) return null;
+  return typeof row.result === "string" ? (JSON.parse(row.result) as AnswerCheckRun) : row.result;
 }

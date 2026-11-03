@@ -1,4 +1,4 @@
-import { answerCheck, weeklyFix } from "@centurion/core";
+import { weeklyFix } from "@centurion/core";
 import { FixActions } from "@/components/FixActions";
 import { getAiSales, money } from "@/lib/data";
 
@@ -8,7 +8,6 @@ export default async function WeeklyFixPage() {
   // Real engine number: AI revenue for this product in the report period.
   const { view } = await getAiSales();
   const sales = view?.report.top_products.find(p => p.title === weeklyFix.product);
-  const finding = answerCheck.findings.find(f => f.product === weeklyFix.product);
 
   return (
     <div className="stack">
@@ -32,12 +31,10 @@ export default async function WeeklyFixPage() {
             </span>
           </div>
         ) : null}
-        {finding ? (
-          <div className="kv">
-            <span>AI gets a key fact wrong</span>
-            <span>AI says “waterproof”, your lab results say it isn’t</span>
-          </div>
-        ) : null}
+        <div className="kv">
+          <span>AI gets a key fact wrong</span>
+          <span>AI says “waterproof”, your lab results say it isn’t</span>
+        </div>
         <div className="kv">
           <span>Risk if left alone</span>
           <span>Returns from shoppers who bought it for heavy rain</span>

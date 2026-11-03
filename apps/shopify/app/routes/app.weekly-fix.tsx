@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { LoaderFunctionArgs } from "react-router";
 import { useLoaderData } from "react-router";
-import { answerCheck, money, REPORT_DAYS, weeklyFix } from "@centurion/core";
+import { money, REPORT_DAYS, weeklyFix } from "@centurion/core";
 import { authenticate } from "../shopify.server";
 import { latestReport } from "../centurion.server";
 
@@ -15,7 +15,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export default function WeeklyFix() {
   const { sales } = useLoaderData<typeof loader>();
-  const finding = answerCheck.findings.find(f => f.product === weeklyFix.product);
   const [applied, setApplied] = useState<string | null>(null);
 
   return (
@@ -35,7 +34,7 @@ export default function WeeklyFix() {
               AI is already selling it: {money(sales.revenue)} from AI in {REPORT_DAYS} days ({sales.units} units).
             </s-paragraph>
           ) : null}
-          {finding ? <s-paragraph>AI gets a key fact wrong: it says “waterproof”, your lab results say it isn’t.</s-paragraph> : null}
+          <s-paragraph>AI gets a key fact wrong: it says “waterproof”, your lab results say it isn’t.</s-paragraph>
           <s-paragraph>Risk if left alone: returns from shoppers who bought it for heavy rain.</s-paragraph>
         </s-stack>
       </s-section>
