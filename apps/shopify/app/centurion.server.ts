@@ -4,33 +4,54 @@ import {
   buildQuestions,
   createAnswerProviders,
   DEMO_NORTHPINE_CATALOG,
+  failStaleRuns,
   fetchOrdersWith,
   fetchShopCatalog,
   findings,
   getDb,
   isMetaLive,
+  latestReportRun,
   loadLatestAnswerCheck,
   loadLatestView,
   META_DEFAULT_MODEL,
   REPORT_DAYS,
+  retryingRunner,
+  RunInProgressError,
   runAnswerCheck,
   saveAnswerCheck,
-  saveReportRun,
+  startReportJob,
   type AiSalesView,
   type AnswerCheckRun,
   type AnswerResult,
-  type GraphqlRunner
+  type GraphqlRunner,
+  type RunStatus
 } from "@centurion/core/server";
 
 type AdminGraphql = (query: string, options?: { variables?: Record<string, unknown> }) => Promise<Response>;
 
-function runnerFor(graphql: AdminGraphql): GraphqlRunner {
-  return async (query, variables) => (await graphql(query, { variables })).json();
+/**
+ * Adapts the Admin API client to a GraphqlRunner. The client throws a Response for HTTP errors (429, 401);
+ * that becomes an Error with the status, so retries can see throttling and failed runs record a readable reason.
+ */
+function runnerWith(client: () => Promise<AdminGraphql>): GraphqlRunner {
+  return async (query, variables) => {
+    try {
+      return await (await (await client())(query, { variables })).json();
+    } catch (error) {
+      if (error instanceof Response) {
+        const hint = error.status === 429 ? " (rate limited)" : error.status === 401 ? " (the store's access token was not accepted)" : "";
+        throw Object.assign(new Error(`Shopify returned HTTP ${error.status}${hint}.`), { status: error.status });
+      }
+      throw error;
+    }
+  };
 }
+
+const runnerFor = (graphql: AdminGraphql) => runnerWith(async () => graphql);
 
 export type ReportState =
   | { configured: false }
-  | { configured: true; shop: string; view: AiSalesView | null; error?: string };
+  | { configured: true; shop: string; view: AiSalesView | null; run: RunStatus | null; error?: string };
 
 /** Plain-words reason for a database failure. Never includes the connection string. */
 function dbErrorMessage(error: unknown): string {
@@ -57,33 +78,58 @@ export async function latestReport(shop: string): Promise<ReportState> {
   const db = getDb();
   if (!db) return { configured: false };
   try {
-    return { configured: true, shop, view: await loadLatestView(db, shop) };
+    await failStaleRuns(db, { shopDomain: shop });
+    const [view, run] = await Promise.all([loadLatestView(db, shop), latestReportRun(db, shop)]);
+    return { configured: true, shop, view, run };
   } catch (error) {
     console.error("Loading the latest report failed", error);
-    return { configured: true, shop, view: null, error: dbErrorMessage(error) };
+    return { configured: true, shop, view: null, run: null, error: dbErrorMessage(error) };
   }
 }
 
-/** Fetches recent orders with the app's authenticated client, classifies them and stores the run. */
-export async function runReport(input: { shop: string; scope?: string; graphql: AdminGraphql }) {
+/**
+ * Starts a report run in the background and returns its id at once, so large stores never hit a request
+ * timeout. The screen polls latestReport until the run is done or failed. Throttled pages are retried.
+ * `adminGraphql` returns a fresh Admin API client for each page, so a long run survives token refreshes.
+ * If a run for this shop is already going, its id is returned instead of starting another.
+ */
+export async function startReport(input: {
+  shop: string;
+  scope?: string;
+  graphql: AdminGraphql;
+  adminGraphql: () => Promise<AdminGraphql>;
+}): Promise<{ runId: string; alreadyRunning: boolean }> {
   const db = getDb();
   if (!db) throw new Error("The database is not connected. Set DATABASE_URL and restart the app.");
-  const run = runnerFor(input.graphql);
+  await failStaleRuns(db, { shopDomain: input.shop });
 
-  const info = await run(`#graphql
+  const info = await retryingRunner(runnerFor(input.graphql))(`#graphql
     query CenturionShop { shop { name currencyCode } }`, {});
-  const orders = await fetchOrdersWith(run, REPORT_DAYS);
-  const { view } = await saveReportRun(db, {
-    shop: {
-      domain: input.shop,
-      name: info.data?.shop?.name ?? null,
-      currency: info.data?.shop?.currencyCode ?? null,
-      scopes: input.scope ? input.scope.split(",") : []
-    },
-    orders,
-    days: REPORT_DAYS
+  const pages = retryingRunner(runnerWith(input.adminGraphql));
+  let job: Awaited<ReturnType<typeof startReportJob>>;
+  try {
+    job = await startReportJob(db, {
+      shop: {
+        domain: input.shop,
+        name: info.data?.shop?.name ?? null,
+        currency: info.data?.shop?.currencyCode ?? null,
+        scopes: input.scope ? input.scope.split(",") : []
+      },
+      days: REPORT_DAYS,
+      fetchOrders: progress =>
+        fetchOrdersWith(async (query, variables) => {
+          progress();
+          return pages(query, variables);
+        }, REPORT_DAYS)
+    });
+  } catch (error) {
+    if (error instanceof RunInProgressError) return { runId: error.runId, alreadyRunning: true };
+    throw error;
+  }
+  void job.done.then(result => {
+    if (result.status === "failed") console.error(`Report run ${job.runId} failed: ${result.error}`);
   });
-  return { orders: orders.length, aiOrders: view.report.ai.orders };
+  return { runId: job.runId, alreadyRunning: false };
 }
 
 // ---------------------------------------------------------------------------------------------

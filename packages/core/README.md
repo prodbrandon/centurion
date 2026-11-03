@@ -24,6 +24,10 @@ Asks AI assistants the questions shoppers ask about a store and flags answers th
 
 `saveAnswerCheck` and `loadLatestAnswerCheck` store runs in the `answer_checks` table.
 
+## Background report runs (`src/jobs.ts`)
+
+`startReportJob(db, { shop, days, fetchOrders })` creates the run (`running`) and returns its id at once; the injected `fetchOrders` and the store step run afterwards, and `done` settles as `done` or `failed`, never rejecting. `retryingRunner` wraps a GraphQL runner so throttled pages (`THROTTLED` or HTTP 429) are retried with exponential backoff. Only one report runs per shop at a time (`RunInProgressError` carries the running run's id). The fetcher calls `progress()` as pages arrive to keep the run's heartbeat fresh; `failStaleRuns` fails runs with no progress for 10 minutes (a stopped process), and a run already failed can never flip to `done`. `latestReportRun` gives the status for polling. `saveReportRun` is the same steps run inline.
+
 `getShopifyToken()` exchanges `SHOPIFY_CLIENT_ID` and `SHOPIFY_CLIENT_SECRET` for an Admin API access token on `SHOPIFY_SHOP` using the client credentials grant, which works for Dev Dashboard apps in the same Shopify organization as the store. Tokens are cached per shop and client ID and refreshed when less than a minute remains. `createShopifyAuth({ fetch, now, env })` builds an independent instance for tests. The file has no dependencies, so `packages/attribution` imports it by relative path.
 
 The package ships TypeScript source and is compiled by each consumer (Vite, Next.js, tsx). Imports use explicit `.ts` extensions.

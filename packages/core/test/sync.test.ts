@@ -1,8 +1,8 @@
 // Proves the two apps stay in sync: a view read back from Postgres is identical to the view
 // the engine builds directly, and the web app's committed demo data matches the engine.
-// Runs the real migration on PGlite (Postgres compiled to WASM, in process).
+// Runs the real migrations on PGlite (Postgres compiled to WASM, in process).
 import { strict as assert } from "node:assert";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -22,13 +22,14 @@ import {
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const sampleOrders: Order[] = JSON.parse(readFileSync(resolve(root, "packages/attribution/data/sample-orders.json"), "utf8"));
-const migration = readFileSync(resolve(root, "supabase/migrations/20261026000000_init.sql"), "utf8");
+const migrationsDir = resolve(root, "supabase/migrations");
+const migrations = readdirSync(migrationsDir).filter(f => f.endsWith(".sql")).sort().map(f => readFileSync(resolve(migrationsDir, f), "utf8"));
 const SHOP = { domain: "northpine-dev.myshopify.com", name: "Northpine Outfitters", currency: "USD", scopes: ["read_orders"] };
 const NOW = new Date("2026-10-23T12:00:00Z");
 
 async function freshDb(): Promise<Db> {
   const pg = new PGlite();
-  await pg.exec(migration);
+  for (const sql of migrations) await pg.exec(sql);
   const wrap = (t: { query: PGlite["query"] }): Queryable => ({
     query: async <T>(text: string, params: unknown[] = []) => (await t.query<T>(text, params as any[])).rows
   });

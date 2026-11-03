@@ -1,11 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { useFetcher, useLoaderData } from "react-router";
+import { useFetcher, useLoaderData, useRevalidator } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { EVIDENCE_WORDS, money, REPORT_DAYS, shortDate, TOUCH_WORDS, type AiSalesView } from "@centurion/core";
-import { authenticate } from "../shopify.server";
-import { latestReport, runErrorMessage, runReport } from "../centurion.server";
+import { authenticate, unauthenticated } from "../shopify.server";
+import { latestReport, runErrorMessage, startReport } from "../centurion.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -15,10 +15,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   try {
-    const result = await runReport({ shop: session.shop, scope: session.scope, graphql: admin.graphql });
+    const result = await startReport({
+      shop: session.shop,
+      scope: session.scope,
+      graphql: admin.graphql,
+      // A fresh client per page: it refreshes the store's offline token if a long run outlives it.
+      adminGraphql: async () => (await unauthenticated.admin(session.shop)).admin.graphql
+    });
     return { ok: true as const, ...result };
   } catch (error) {
-    console.error("Report run failed", error);
+    console.error("Starting the report failed", error);
     return { ok: false as const, error: runErrorMessage(error) };
   }
 };
@@ -27,12 +33,35 @@ export default function AiSales() {
   const state = useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
   const shopify = useAppBridge();
-  const running = fetcher.state !== "idle";
+  const revalidator = useRevalidator();
+  const run = state.configured ? state.run : null;
+  const inBackground = run?.status === "running";
+  const running = fetcher.state !== "idle" || inBackground;
+
+  // The report runs in the background; reload the stored state every 2 seconds until it finishes.
+  useEffect(() => {
+    if (!inBackground) return;
+    const timer = setInterval(() => {
+      if (revalidator.state === "idle") revalidator.revalidate();
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [inBackground, revalidator]);
+
+  // Toast once when the run this page started (or joined) reaches a final status.
+  const started = fetcher.data?.ok ? fetcher.data.runId : null;
+  const toasted = useRef<string | null>(null);
+  useEffect(() => {
+    if (!started || toasted.current === started || run?.id !== started || run.status === "running") return;
+    toasted.current = started;
+    if (run.status === "done" && state.configured && state.view) {
+      shopify.toast.show(`Report done: ${state.view.report.ai.orders} AI orders of ${state.view.report.orders}`);
+    } else if (run.status === "failed") {
+      shopify.toast.show("Report failed", { isError: true });
+    }
+  }, [started, run, state, shopify]);
 
   useEffect(() => {
-    if (fetcher.state !== "idle" || !fetcher.data) return;
-    if (fetcher.data.ok) shopify.toast.show(`Report done: ${fetcher.data.aiOrders} AI orders of ${fetcher.data.orders}`);
-    else shopify.toast.show("Report failed", { isError: true });
+    if (fetcher.state === "idle" && fetcher.data && !fetcher.data.ok) shopify.toast.show("Report failed to start", { isError: true });
   }, [fetcher.state, fetcher.data, shopify]);
 
   const runButton = (
@@ -51,8 +80,24 @@ export default function AiSales() {
     <s-page heading="AI Sales">
       {runButton}
       {fetcher.data && !fetcher.data.ok ? (
-        <s-banner tone="critical" heading="The report didn't finish">
+        <s-banner tone="critical" heading="The report didn't start">
           <s-paragraph>{fetcher.data.error}</s-paragraph>
+        </s-banner>
+      ) : null}
+      {inBackground ? (
+        <s-banner tone="info" heading="Report running">
+          <s-paragraph>
+            {fetcher.data?.ok && fetcher.data.alreadyRunning ? "A report was already running, so this page is following it. " : ""}
+            Reading your last {REPORT_DAYS} days of orders, started{" "}
+            {new Date(run.startedAt).toLocaleTimeString("en-US", { timeZone: "UTC", hour: "numeric", minute: "2-digit" })} UTC. You can
+            leave this page; the report keeps running and appears here when it’s done.
+          </s-paragraph>
+        </s-banner>
+      ) : run?.status === "failed" ? (
+        <s-banner tone="critical" heading="The last report didn't finish">
+          <s-paragraph>
+            {run.error ?? "Unknown error."} {state.configured && state.view ? "Showing the last report that finished." : ""}
+          </s-paragraph>
         </s-banner>
       ) : null}
       {!state.configured ? (

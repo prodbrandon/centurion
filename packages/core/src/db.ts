@@ -81,6 +81,124 @@ async function upsertShop(q: Queryable, shop: ShopInfo): Promise<string> {
   return row!.id;
 }
 
+/** A report for this shop is already running. `runId` is that run. */
+export class RunInProgressError extends Error {
+  constructor(readonly runId: string) {
+    super("A report is already running for this store.");
+    this.name = "RunInProgressError";
+  }
+}
+
+/**
+ * Creates a report run in status 'running' and returns its id. The orders are stored later by completeReportRun.
+ * Throws RunInProgressError when the shop already has a running report (one at a time per shop).
+ */
+export async function createReportRun(
+  db: Queryable,
+  input: { shop: ShopInfo; days: number; file?: SignatureFile; now?: Date }
+): Promise<{ runId: string; shopId: string }> {
+  const file = input.file ?? currentSignatures;
+  const now = input.now ?? new Date();
+  const shopId = await upsertShop(db, input.shop);
+  await db.query(
+    `insert into signature_versions (version, file, created_by) values ($1, $2::text::jsonb, 'engine') on conflict (version) do nothing`,
+    [file.version, json(file)]
+  );
+  // "on conflict do nothing" against the one-running-report-per-shop index, so a second press never errors mid-transaction.
+  const [run] = await db.query<{ id: string }>(
+    `insert into runs (shop_id, kind, signature_version, period_start, period_end, started_at, heartbeat_at)
+     values ($1, 'report', $2, $3::date, $4::date, $5, $5)
+     on conflict (shop_id) where kind = 'report' and status = 'running' do nothing
+     returning id`,
+    [shopId, file.version, isoDate(new Date(now.getTime() - input.days * 864e5)), isoDate(now), now.toISOString()]
+  );
+  if (!run) {
+    const [current] = await db.query<{ id: string }>(`select id from runs where shop_id = $1 and kind = 'report' and status = 'running'`, [shopId]);
+    throw new RunInProgressError(current?.id ?? "");
+  }
+  return { runId: run.id, shopId };
+}
+
+/**
+ * Classifies the orders and stores them with their attributions under an existing run, then marks it
+ * 'done', all in one transaction. Returns the view. Throws (leaving the run untouched) if storing fails.
+ */
+export async function completeReportRun(
+  db: Db,
+  input: { runId: string; shopId: string; shop: ShopInfo; orders: Order[]; file?: SignatureFile; now?: Date }
+): Promise<AiSalesView> {
+  const file = input.file ?? currentSignatures;
+  const now = input.now ?? new Date();
+  const orders = canonicalOrders(input.orders);
+  const { runId, shopId } = input;
+  return db.transaction(async tx => {
+    for (const part of chunks(orders)) {
+      await tx.query(
+        `insert into orders (shop_id, id, name, created_at, total, currency, channel, first_visit, last_visit, line_items, fetched_at)
+         select $1::uuid, r.id, r.name, r.created_at, r.total, r.currency, r.channel, r.first_visit, r.last_visit, r.line_items, now()
+         from jsonb_to_recordset($2::text::jsonb) as r(id text, name text, created_at timestamptz, total numeric, currency text,
+           channel text, first_visit jsonb, last_visit jsonb, line_items jsonb)
+         on conflict (shop_id, id) do update set
+           name = excluded.name, created_at = excluded.created_at, total = excluded.total, currency = excluded.currency,
+           channel = excluded.channel, first_visit = excluded.first_visit, last_visit = excluded.last_visit,
+           line_items = excluded.line_items, fetched_at = excluded.fetched_at`,
+        [
+          shopId,
+          json(
+            part.map(o => ({
+              id: o.id,
+              name: o.name,
+              created_at: o.createdAt,
+              total: o.total,
+              currency: o.currency,
+              channel: o.channel ?? null,
+              first_visit: o.firstVisit ?? null,
+              last_visit: o.lastVisit ?? null,
+              line_items: o.lineItems
+            }))
+          )
+        ]
+      );
+    }
+
+    // Store exactly the attributions the view counts.
+    const attributions = classifyOrders(orders, file.signatures);
+    const built = assembleView({
+      orders,
+      attributions,
+      file,
+      store: { name: input.shop.name ?? input.shop.domain, domain: input.shop.domain },
+      generatedAt: now.toISOString()
+    });
+    for (const part of chunks(attributions)) {
+      await tx.query(
+        `insert into attributions (run_id, shop_id, order_id, is_ai, source, touch, evidence, proof)
+         select $1::uuid, $2::uuid, r.order_id, r.is_ai, r.source, r.touch, r.evidence,
+           array(select jsonb_array_elements_text(r.proof))
+         from jsonb_to_recordset($3::text::jsonb) as r(order_id text, is_ai boolean, source text, touch text, evidence text, proof jsonb)`,
+        [
+          runId,
+          shopId,
+          json(part.map(a => ({ order_id: a.orderId, is_ai: a.isAI, source: a.source, touch: a.touch, evidence: a.evidence, proof: a.proof })))
+        ]
+      );
+    }
+    // Only a run that is still 'running' can finish; one already failed (for example as stale) stays failed.
+    const updated = await tx.query(`update runs set status = 'done', summary = $2::text::jsonb, finished_at = $3 where id = $1 and status = 'running' returning id`, [
+      runId,
+      json(built.report),
+      now.toISOString()
+    ]);
+    if (updated.length === 0) throw new Error("This report run was already marked failed, so its results were not saved.");
+    return built;
+  });
+}
+
+/** Marks a run 'failed' with the error (trimmed to 1,000 characters). */
+export async function failReportRun(db: Queryable, runId: string, error: string): Promise<void> {
+  await db.query(`update runs set status = 'failed', error = $2, finished_at = now() where id = $1 and status = 'running'`, [runId, error.slice(0, 1000)]);
+}
+
 /**
  * Classifies the orders, stores them with their attributions as one report run, and returns
  * the view. If storing fails, the run is kept with status 'failed' and the error.
@@ -89,88 +207,63 @@ export async function saveReportRun(
   db: Db,
   input: { shop: ShopInfo; orders: Order[]; days: number; file?: SignatureFile; now?: Date }
 ): Promise<{ runId: string; view: AiSalesView }> {
-  const file = input.file ?? currentSignatures;
-  const now = input.now ?? new Date();
-  const orders = canonicalOrders(input.orders);
-
-  const shopId = await upsertShop(db, input.shop);
-  await db.query(
-    `insert into signature_versions (version, file, created_by) values ($1, $2::text::jsonb, 'engine') on conflict (version) do nothing`,
-    [file.version, json(file)]
-  );
-  const [run] = await db.query<{ id: string }>(
-    `insert into runs (shop_id, kind, signature_version, period_start, period_end)
-     values ($1, 'report', $2, $3::date, $4::date) returning id`,
-    [shopId, file.version, isoDate(new Date(now.getTime() - input.days * 864e5)), isoDate(now)]
-  );
-  const runId = run!.id;
-
+  const { runId, shopId } = await createReportRun(db, input);
   try {
-    const view = await db.transaction(async tx => {
-      for (const part of chunks(orders)) {
-        await tx.query(
-          `insert into orders (shop_id, id, name, created_at, total, currency, channel, first_visit, last_visit, line_items, fetched_at)
-           select $1::uuid, r.id, r.name, r.created_at, r.total, r.currency, r.channel, r.first_visit, r.last_visit, r.line_items, now()
-           from jsonb_to_recordset($2::text::jsonb) as r(id text, name text, created_at timestamptz, total numeric, currency text,
-             channel text, first_visit jsonb, last_visit jsonb, line_items jsonb)
-           on conflict (shop_id, id) do update set
-             name = excluded.name, created_at = excluded.created_at, total = excluded.total, currency = excluded.currency,
-             channel = excluded.channel, first_visit = excluded.first_visit, last_visit = excluded.last_visit,
-             line_items = excluded.line_items, fetched_at = excluded.fetched_at`,
-          [
-            shopId,
-            json(
-              part.map(o => ({
-                id: o.id,
-                name: o.name,
-                created_at: o.createdAt,
-                total: o.total,
-                currency: o.currency,
-                channel: o.channel ?? null,
-                first_visit: o.firstVisit ?? null,
-                last_visit: o.lastVisit ?? null,
-                line_items: o.lineItems
-              }))
-            )
-          ]
-        );
-      }
-
-      // Store exactly the attributions the view counts.
-      const attributions = classifyOrders(orders, file.signatures);
-      const built = assembleView({
-        orders,
-        attributions,
-        file,
-        store: { name: input.shop.name ?? input.shop.domain, domain: input.shop.domain },
-        generatedAt: now.toISOString()
-      });
-      for (const part of chunks(attributions)) {
-        await tx.query(
-          `insert into attributions (run_id, shop_id, order_id, is_ai, source, touch, evidence, proof)
-           select $1::uuid, $2::uuid, r.order_id, r.is_ai, r.source, r.touch, r.evidence,
-             array(select jsonb_array_elements_text(r.proof))
-           from jsonb_to_recordset($3::text::jsonb) as r(order_id text, is_ai boolean, source text, touch text, evidence text, proof jsonb)`,
-          [
-            runId,
-            shopId,
-            json(part.map(a => ({ order_id: a.orderId, is_ai: a.isAI, source: a.source, touch: a.touch, evidence: a.evidence, proof: a.proof })))
-          ]
-        );
-      }
-      await tx.query(`update runs set status = 'done', summary = $2::text::jsonb, finished_at = $3 where id = $1`, [
-        runId,
-        json(built.report),
-        now.toISOString()
-      ]);
-      return built;
-    });
+    const view = await completeReportRun(db, { runId, shopId, shop: input.shop, orders: input.orders, file: input.file, now: input.now });
     return { runId, view };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    await db.query(`update runs set status = 'failed', error = $2, finished_at = now() where id = $1`, [runId, message.slice(0, 1000)]);
+    await failReportRun(db, runId, error instanceof Error ? error.message : String(error));
     throw error;
   }
+}
+
+export interface RunStatus {
+  id: string;
+  status: "running" | "done" | "failed";
+  error: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+}
+
+/** The shop's most recently started report run, whatever its status. Null if it has none. */
+export async function latestReportRun(db: Queryable, shopDomain: string): Promise<RunStatus | null> {
+  const [row] = await db.query<{ id: string; status: RunStatus["status"]; error: string | null; started_at: Date | string; finished_at: Date | string | null }>(
+    `select r.id, r.status, r.error, r.started_at, r.finished_at
+     from runs r join shops s on s.id = r.shop_id
+     where s.shop_domain = $1 and r.kind = 'report'
+     order by r.started_at desc, r.id desc limit 1`,
+    [shopDomain]
+  );
+  if (!row) return null;
+  return {
+    id: row.id,
+    status: row.status,
+    error: row.error,
+    startedAt: new Date(row.started_at).toISOString(),
+    finishedAt: row.finished_at ? new Date(row.finished_at).toISOString() : null
+  };
+}
+
+/** Records that a running report is still making progress. */
+export async function touchReportRun(db: Queryable, runId: string, now: Date = new Date()): Promise<void> {
+  await db.query(`update runs set heartbeat_at = $2 where id = $1 and status = 'running'`, [runId, now.toISOString()]);
+}
+
+/**
+ * Fails report runs with no progress for `olderThanMinutes`: their process stopped (deploy, crash) before
+ * finishing. Running jobs touch their heartbeat as pages arrive, so a long run is never failed while it works.
+ * Pass `shopDomain` to check one shop.
+ */
+export async function failStaleRuns(db: Queryable, opts: { olderThanMinutes?: number; now?: Date; shopDomain?: string } = {}): Promise<number> {
+  const rows = await db.query(
+    `update runs set status = 'failed', error = 'The report stopped before finishing (the app restarted). Run it again.', finished_at = $2
+     where status = 'running' and kind = 'report'
+       and coalesce(heartbeat_at, started_at) < $2::timestamptz - make_interval(mins => $1::int)
+       and ($3::text is null or shop_id = (select id from shops where shop_domain = $3))
+     returning id`,
+    [opts.olderThanMinutes ?? 10, (opts.now ?? new Date()).toISOString(), opts.shopDomain ?? null]
+  );
+  return rows.length;
 }
 
 interface RunRow {

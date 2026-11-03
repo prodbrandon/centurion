@@ -7,3 +7,4 @@ export { fetchOrdersWith, type GraphqlRunner } from "../../attribution/src/shopi
 export * from "./shopify-auth.ts";
 export type { Order, SignatureFile } from "../../attribution/src/types.ts";
 export * from "./answer-check/index.ts";
+export * from "./jobs.ts";

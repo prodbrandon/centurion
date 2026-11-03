@@ -8,7 +8,7 @@ All classification and storage goes through `@centurion/core` (`packages/core`),
 
 | Screen | Route | Data |
 | --- | --- | --- |
-| AI Sales | `/app` | Live. **Run report** fetches the last 60 days of orders, classifies them, stores the run in Postgres and renders it. |
+| AI Sales | `/app` | Live. **Run report** starts a background run that fetches the last 60 days of orders (retrying throttled pages), classifies them and stores the run in Postgres. The screen shows the run's progress and renders the result when it is done. |
 | Checkout Test | `/app/checkout-test` | Preview, sample data |
 | Answer Check | `/app/answer-check` | Live with `META_API_KEY`: **Ask Meta Llama now** asks Llama about the store's products (AI best sellers first), compares each answer with the catalog by fixed rules and stores the run. Without a key it shows a fixture run on the Northpine demo catalog, labeled as sample answers. |
 | Weekly Fix | `/app/weekly-fix` | Preview. Apply and undo do not change the store. |
@@ -78,6 +78,7 @@ On start the container runs `prisma generate && prisma migrate deploy` (prepare 
 
 ## Known limits
 
+- Report runs execute in the app's Node process, one at a time per store (a second **Run report** follows the run already going). A running report records a heartbeat as pages arrive; if the process restarts mid-run, the run is marked failed once it has made no progress for 10 minutes, and can be started again. Run a single instance, or move runs to a queue before scaling out. Apply `../../supabase/migrations/20261103020000_report_run_heartbeat.sql`.
 - Answer Check on a live store checks prices, stock and banned claims. Spec facts (weights, materials) and store policies are only checked on the demo catalog until they are read from Shopify.
 - Answer Check runs inside the request (5 products, 3 questions each, 3 at a time), so expect it to take tens of seconds.
 
