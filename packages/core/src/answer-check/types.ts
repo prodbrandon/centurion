@@ -75,6 +75,8 @@ export interface Issue {
   truth: string;
   source: string;
   why: string;
+  /** banned_claim only: the banned claims the sentence makes. */
+  claims?: string[];
 }
 
 export type AnswerStatus = "consistent" | "contradiction" | "no_answer" | "error";

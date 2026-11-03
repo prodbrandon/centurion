@@ -16,7 +16,13 @@ import {
   markFixUndone,
   measureFix,
   runAnswerCheck,
-  saveAppliedFix,
+  aiRevenueSince,
+  completeFix,
+  FixInProgressError,
+  releaseFix,
+  reserveFix,
+  rewriteKeepsFacts,
+  saveReportRun,
   shopifyProductAdmin,
   StoreWritesOffError,
   storeWritesEnabled,
@@ -24,6 +30,7 @@ import {
   undoFix,
   UndoConflictError,
   type AiSalesView,
+  type Db,
   type AnswerCheckRun,
   type GraphqlRunner,
   type ProductAdmin,
@@ -34,8 +41,8 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const demoView = JSON.parse(readFileSync(resolve(root, "apps/web/data/demo.json"), "utf8")) as AiSalesView;
 const fixtureRun = () => runAnswerCheck({ catalog: DEMO_NORTHPINE_CATALOG, providers: createAnswerProviders({}), now: new Date("2026-11-03T12:00:00Z") });
 
-/** An in-memory Admin API that records every call. */
-function mockAdmin(descriptions: Record<string, string>) {
+/** An in-memory Admin API that records every call. `reserialize` mimics a store that rewrites HTML on save. */
+function mockAdmin(descriptions: Record<string, string>, reserialize: (html: string) => string = h => h) {
   const calls: string[] = [];
   const admin: ProductAdmin = {
     async getDescription(id) {
@@ -45,7 +52,7 @@ function mockAdmin(descriptions: Record<string, string>) {
     },
     async setDescription(id, html) {
       calls.push(`set ${id}`);
-      descriptions[id] = html;
+      descriptions[id] = reserialize(html);
     }
   };
   return { admin, calls, descriptions };
@@ -97,7 +104,20 @@ test("apply adds the text to the top of the description and records before and a
 
   await undoFix(admin, applied, { writesEnabled: true });
   assert.equal(descriptions["NP-RB45"], "<p>A 45-liter pack.</p>");
-  assert.deepEqual(calls, ["get NP-RB45", "set NP-RB45", "get NP-RB45", "get NP-RB45", "set NP-RB45"]);
+  assert.deepEqual(calls, ["get NP-RB45", "set NP-RB45", "get NP-RB45", "get NP-RB45", "get NP-RB45", "set NP-RB45"]);
+});
+
+test("a store that rewrites HTML on save: after is read back, undo still works, and a second apply is refused", async () => {
+  const s = suggestFix({ sales: demoView.report, answerCheck: await fixtureRun(), catalog: DEMO_NORTHPINE_CATALOG })!;
+  // Drops data-* attributes and newlines, like an HTML sanitizer.
+  const { admin, descriptions } = mockAdmin({ "NP-RB45": "<p>A 45-liter pack.</p>" }, h => h.replace(/ data-[\w-]+="[^"]*"/g, "").replace(/\n/g, ""));
+  const applied = await applyFix(admin, s, { writesEnabled: true });
+  assert.equal(applied.afterHtml, "<p>Weight: 1.3 kg. Not ultralight.</p><p>A 45-liter pack.</p>", "recorded as the store saved it");
+  await assert.rejects(applyFix(admin, s, { writesEnabled: true }), /already on the product/);
+  descriptions["NP-RB45"] = "<p>Weight: 1.3 kg. Not ultralight.</p>\n  <p>A 45-liter pack.</p>"; // whitespace-only change
+  assert.equal(await undoFix(admin, applied, { writesEnabled: true }), "restored");
+  assert.equal(descriptions["NP-RB45"], "<p>A 45-liter pack.</p>");
+  assert.equal(await undoFix(admin, applied, { writesEnabled: true }), "already_undone", "a retried undo doesn't conflict");
 });
 
 test("undo refuses to overwrite edits made after the fix", async () => {
@@ -136,16 +156,15 @@ test("the Shopify Admin client reads descriptionHtml and writes with productUpda
   await assert.rejects(rejecting.setDescription("gid://shopify/Product/1", "x"), /Too long/);
 });
 
-test("measurement: the fixed product's change beyond the holdouts' change, per day", () => {
+test("measurement: the fixed product's change beyond the holdouts' change, per day, from orders since the fix", () => {
   const baseline = { periodDays: 90, product: { title: "Ridgeback 45L Pack", aiRevenue: 900 }, holdouts: [{ title: "A", aiRevenue: 450 }, { title: "B", aiRevenue: 1350 }] };
-  const after = {
-    ...demoView,
-    report: { ...demoView.report, period: { from: "2026-11-04", to: "2026-11-10" }, top_products: [{ title: "Ridgeback 45L Pack", units: 5, revenue: 140 }, { title: "A", units: 1, revenue: 42 }, { title: "B", units: 2, revenue: 98 }] }
-  } as AiSalesView;
-  const m = measureFix(baseline, after);
+  const m = measureFix(baseline, { periodDays: 7, revenue: { "Ridgeback 45L Pack": 140, A: 42, B: 98 } })!;
   assert.deepEqual(m.product, { before: 10, after: 20, change: 10 });
   assert.deepEqual(m.holdouts, { before: 10, after: 10, change: 0 });
   assert.equal(m.lift, 10);
+  // A product with no AI orders since the fix really earned $0 from AI in that time.
+  assert.equal(measureFix(baseline, { periodDays: 7, revenue: {} })!.product.after, 0);
+  assert.equal(measureFix({ ...baseline, holdouts: [] }, { periodDays: 7, revenue: {} }), null, "nothing to compare against");
 });
 
 test("Meta may reword the explanation, but never changes the suggestion, and the template stays on any problem", async () => {
@@ -155,36 +174,69 @@ test("Meta may reword the explanation, but never changes the suggestion, and the
   const reply = (text: string) => (async () => new Response(JSON.stringify({ completion_message: { content: { type: "text", text } } }), { status: 200 })) as unknown as typeof fetch;
   const good = await explainFix(s, { META_API_KEY: "k" }, { fetch: reply("AI sold $4,914 of the Ridgeback 45L Pack, but told shoppers it weighs 0.9 kg. Your spec says 1.3 kg.") });
   assert.equal(good.explanationBy, "meta");
+  assert.equal(good.explanationBy, "meta");
   assert.deepEqual({ ...good, explanation: s.explanation, explanationBy: "template" }, s, "only the wording changed");
 
   const dropped = await explainFix(s, { META_API_KEY: "k" }, { fetch: reply("This pack has a problem.") });
   assert.deepEqual(dropped, s, "a rewrite that loses the numbers is ignored");
+  const changed = await explainFix(s, { META_API_KEY: "k" }, { fetch: reply("AI sold $4,914 of the Ridgeback 45L Pack, but said it weighs 0.8 kg. Your spec says 1.3 kg.") });
+  assert.deepEqual(changed, s, "a rewrite that changes a number is ignored");
+  assert.equal(rewriteKeepsFacts(s, "AI sold $4,914 of the Ridgeback 45L Pack in 90 days; the spec says 1.3 kg."), true);
   const failing = await explainFix(s, { META_API_KEY: "k" }, { fetch: (async () => new Response("{}", { status: 500 })) as unknown as typeof fetch });
   assert.deepEqual(failing, s);
 });
 
-async function freshDb(): Promise<Queryable> {
+async function freshDb(): Promise<Db> {
   const pg = new PGlite();
   const dir = resolve(root, "supabase/migrations");
   for (const f of readdirSync(dir).filter(f => f.endsWith(".sql")).sort()) await pg.exec(readFileSync(resolve(dir, f), "utf8"));
-  return { query: async <T>(text: string, params: unknown[] = []) => (await pg.query<T>(text, params as any[])).rows };
+  const wrap = (t: { query: PGlite["query"] }): Queryable => ({
+    query: async <T>(text: string, params: unknown[] = []) => (await t.query<T>(text, params as any[])).rows
+  });
+  return { ...wrap(pg), transaction: fn => pg.transaction(tx => fn(wrap(tx))) };
 }
 
-test("applied fixes are stored with before, after and baseline; undo is recorded; one live copy per fix", async () => {
+test("fixes are reserved before the store write, recorded after, one live fix per store, and undo is recorded", async () => {
   const db = await freshDb();
   const shop = { domain: "fix-dev.myshopify.com" };
   const s = suggestFix({ sales: demoView.report, answerCheck: await fixtureRun(), catalog: DEMO_NORTHPINE_CATALOG })!;
   const { admin } = mockAdmin({ "NP-RB45": "<p>Old.</p>" });
-  const applied = await applyFix(admin, s, { writesEnabled: true, now: new Date("2026-11-03T12:00:00Z") });
-  const id = await saveAppliedFix(db, shop, applied);
 
-  const stored = await latestFix(db, shop.domain);
-  assert.deepEqual(stored, { ...applied, id, status: "applied", undoneAt: null });
-  await assert.rejects(saveAppliedFix(db, shop, applied), /duplicate key|unique/i);
+  const id = await reserveFix(db, shop, s);
+  await assert.rejects(reserveFix(db, shop, { ...s, key: "other", productId: "NP-TH2" }), FixInProgressError, "one at a time, even for another product");
+  assert.equal(await latestFix(db, shop.domain), null, "pending reservations aren't shown");
+  const applied = await applyFix(admin, s, { writesEnabled: true, now: new Date("2026-11-03T12:00:00Z") });
+  await completeFix(db, id, applied);
+  assert.deepEqual(await latestFix(db, shop.domain), { ...applied, id, status: "applied", undoneAt: null });
+  await assert.rejects(reserveFix(db, shop, s), FixInProgressError, "no second fix while one is live");
 
   assert.equal(await markFixUndone(db, id, new Date("2026-11-04T12:00:00Z")), true);
   assert.equal(await markFixUndone(db, id), false);
   const undone = await latestFix(db, shop.domain);
   assert.equal(undone!.status, "undone");
   assert.equal(undone!.undoneAt, "2026-11-04T12:00:00.000Z");
+
+  // A reservation whose store write failed is released, and stale ones are cleared.
+  const failed = await reserveFix(db, shop, s);
+  await releaseFix(db, failed);
+  await reserveFix(db, shop, s, new Date("2026-11-05T00:00:00Z"));
+  await reserveFix(db, shop, s, new Date("2026-11-05T00:11:00Z"));
+});
+
+test("AI revenue since the fix counts only AI orders placed after it, across every product", async () => {
+  const db = await freshDb();
+  const shop = { domain: "since-dev.myshopify.com", name: "Since" };
+  const orders = JSON.parse(readFileSync(resolve(root, "packages/attribution/data/sample-orders.json"), "utf8"));
+  const { view } = await saveReportRun(db, { shop, orders, days: 90, now: new Date("2026-10-23T12:00:00Z") });
+  const since = "2026-10-01T00:00:00.000Z";
+  const got = (await aiRevenueSince(db, shop.domain, since))!;
+  const ai = new Set(view.aiOrders.map(o => o.name));
+  const expected: Record<string, number> = {};
+  for (const o of orders) {
+    if (!ai.has(o.name) || o.createdAt < since) continue;
+    for (const li of o.lineItems) expected[li.title] = Math.round(((expected[li.title] ?? 0) + li.total) * 100) / 100;
+  }
+  assert.deepEqual(got.revenue, expected);
+  assert.ok(Object.keys(expected).length > 0);
+  assert.ok(got.periodDays >= 21 && got.periodDays <= 23, `days ${got.periodDays}`);
 });

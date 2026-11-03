@@ -10,7 +10,7 @@ import type { Attribution, Order, SignatureFile } from "../../attribution/src/ty
 import { currentSignatures } from "./signatures.ts";
 import type { AnswerCheckRun } from "./answer-check/types.ts";
 import type { CheckoutRunResult } from "./checkout-types.ts";
-import type { AppliedFix, FixBaseline, FixSuggestion } from "./weekly-fix.ts";
+import type { AppliedFix, FixBaseline, FixSuggestion, SalesSince } from "./weekly-fix.ts";
 import type { AiSalesView } from "./types.ts";
 import { assembleView, canonicalOrders } from "./view.ts";
 
@@ -462,15 +462,47 @@ export interface StoredFix extends AppliedFix {
   undoneAt: string | null;
 }
 
-/** Records an applied fix. */
-export async function saveAppliedFix(db: Queryable, shop: ShopInfo, fix: AppliedFix): Promise<string> {
+/** Another fix for this store is being applied or is live. */
+export class FixInProgressError extends Error {
+  constructor() {
+    super("Another fix is live or being applied on this store. Undo it first.");
+    this.name = "FixInProgressError";
+  }
+}
+
+/**
+ * Reserves the store's one fix slot before the store is written. Pending rows older than 10 minutes (a process
+ * that stopped mid-apply) are cleared first. Throws FixInProgressError if a fix is pending or live.
+ */
+export async function reserveFix(db: Queryable, shop: ShopInfo, suggestion: FixSuggestion, now: Date = new Date()): Promise<string> {
   const shopId = await upsertShop(db, shop);
+  await db.query(`delete from weekly_fixes where shop_id = $1 and status = 'pending' and created_at < $2::timestamptz - interval '10 minutes'`, [
+    shopId,
+    now.toISOString()
+  ]);
   const [row] = await db.query<{ id: string }>(
-    `insert into weekly_fixes (shop_id, fix_key, product_id, product_title, status, suggestion, before_html, after_html, baseline, applied_at)
-     values ($1, $2, $3, $4, 'applied', $5::text::jsonb, $6, $7, $8::text::jsonb, $9) returning id`,
-    [shopId, fix.suggestion.key, fix.suggestion.productId, fix.suggestion.productTitle, json(fix.suggestion), fix.beforeHtml, fix.afterHtml, json(fix.baseline), fix.appliedAt]
+    `insert into weekly_fixes (shop_id, fix_key, product_id, product_title, status, suggestion, created_at)
+     values ($1, $2, $3, $4, 'pending', $5::text::jsonb, $6)
+     on conflict (shop_id) where status in ('pending', 'applied') do nothing returning id`,
+    [shopId, suggestion.key, suggestion.productId, suggestion.productTitle, json(suggestion), now.toISOString()]
   );
-  return row!.id;
+  if (!row) throw new FixInProgressError();
+  return row.id;
+}
+
+/** Records what the store now holds for a reserved fix. Throws if the row is no longer pending. */
+export async function completeFix(db: Queryable, fixId: string, fix: AppliedFix): Promise<void> {
+  const rows = await db.query(
+    `update weekly_fixes set status = 'applied', suggestion = $2::text::jsonb, before_html = $3, after_html = $4, baseline = $5::text::jsonb, applied_at = $6
+     where id = $1 and status = 'pending' returning id`,
+    [fixId, json(fix.suggestion), fix.beforeHtml, fix.afterHtml, json(fix.baseline), fix.appliedAt]
+  );
+  if (rows.length === 0) throw new Error("The reserved fix was cleared before it could be recorded.");
+}
+
+/** Gives back a reservation whose store write didn't happen. */
+export async function releaseFix(db: Queryable, fixId: string): Promise<void> {
+  await db.query(`delete from weekly_fixes where id = $1 and status = 'pending'`, [fixId]);
 }
 
 /** Marks an applied fix as undone. Returns false if it wasn't applied (already undone or unknown). */
@@ -479,7 +511,7 @@ export async function markFixUndone(db: Queryable, fixId: string, now: Date = ne
   return rows.length > 0;
 }
 
-/** The shop's most recent fix, applied or undone. */
+/** The shop's most recent applied or undone fix (pending reservations are not shown). */
 export async function latestFix(db: Queryable, shopDomain: string): Promise<StoredFix | null> {
   const [row] = await db.query<{
     id: string;
@@ -493,7 +525,8 @@ export async function latestFix(db: Queryable, shopDomain: string): Promise<Stor
   }>(
     `select f.id, f.status, f.suggestion, f.before_html, f.after_html, f.baseline, f.applied_at, f.undone_at
      from weekly_fixes f join shops s on s.id = f.shop_id
-     where s.shop_domain = $1 and s.uninstalled_at is null order by f.applied_at desc limit 1`,
+     where s.shop_domain = $1 and s.uninstalled_at is null and f.status in ('applied', 'undone')
+     order by f.applied_at desc limit 1`,
     [shopDomain]
   );
   if (!row) return null;
@@ -508,4 +541,29 @@ export async function latestFix(db: Queryable, shopDomain: string): Promise<Stor
     appliedAt: new Date(row.applied_at).toISOString(),
     undoneAt: row.undone_at ? new Date(row.undone_at).toISOString() : null
   };
+}
+
+/**
+ * AI revenue per product (line item totals, as in the AI Sales report) from orders placed since `since`, in the
+ * shop's latest finished report, and the number of days covered (since → the newest order, at least one day).
+ */
+export async function aiRevenueSince(db: Queryable, shopDomain: string, since: string): Promise<SalesSince | null> {
+  const [run] = await db.query<{ id: string; finished_at: Date | string }>(
+    `select r.id, r.finished_at from runs r join shops s on s.id = r.shop_id
+     where s.shop_domain = $1 and r.kind = 'report' and r.status = 'done' order by r.finished_at desc limit 1`,
+    [shopDomain]
+  );
+  if (!run) return null;
+  const rows = await db.query<{ title: string; revenue: string | number; newest: Date | string }>(
+    `select li->>'title' as title, sum((li->>'total')::numeric) as revenue, max(o.created_at) as newest
+     from attributions a
+     join orders o on o.shop_id = a.shop_id and o.id = a.order_id
+     cross join lateral jsonb_array_elements(o.line_items) li
+     where a.run_id = $1 and a.is_ai and o.created_at >= $2::timestamptz
+     group by li->>'title'`,
+    [run.id, since]
+  );
+  const end = Math.max(Date.parse(since), ...rows.map(r => new Date(r.newest).getTime()), new Date(run.finished_at).getTime());
+  const periodDays = Math.max(1, Math.round((end - Date.parse(since)) / 864e5));
+  return { periodDays, revenue: Object.fromEntries(rows.map(r => [r.title, Math.round(Number(r.revenue) * 100) / 100])) };
 }

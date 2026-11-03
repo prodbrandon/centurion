@@ -13,6 +13,8 @@ import {
   findings,
   getDb,
   isMetaLive,
+  aiRevenueSince,
+  completeFix,
   latestFix,
   latestReportRun,
   loadLatestAnswerCheck,
@@ -26,8 +28,10 @@ import {
   RunInProgressError,
   runAnswerCheck,
   saveAnswerCheck,
-  saveAppliedFix,
+  releaseFix,
+  reserveFix,
   shopifyProductAdmin,
+  StoreWritesOffError,
   startReportJob,
   storeWritesEnabled,
   suggestFix,
@@ -243,8 +247,20 @@ export type WeeklyFixState = {
   error?: string;
 };
 
+// Meta's wording of an explanation, per suggestion and template text, so page loads don't call Meta each time.
+const explained = new Map<string, FixSuggestion>();
+async function explainOnce(s: FixSuggestion): Promise<FixSuggestion> {
+  const key = `${s.key}|${s.explanation}`;
+  const cached = explained.get(key);
+  if (cached) return cached;
+  const result = await explainFix(s);
+  if (explained.size > 500) explained.clear();
+  explained.set(key, result);
+  return result;
+}
+
 /** The store's own fix: needs a stored AI Sales report, a stored live Answer Check and the product catalog. */
-async function liveSuggestion(shop: string, graphql: AdminGraphql): Promise<{ suggestion: FixSuggestion | null; reason?: string }> {
+async function liveSuggestion(shop: string, graphql: AdminGraphql, opts: { explain: boolean }): Promise<{ suggestion: FixSuggestion | null; reason?: string }> {
   const db = getDb();
   if (!db) return { suggestion: null, reason: "The database is not connected." };
   const view = await loadLatestView(db, shop);
@@ -254,7 +270,7 @@ async function liveSuggestion(shop: string, graphql: AdminGraphql): Promise<{ su
   const catalog = await fetchShopCatalog(runnerFor(graphql), { bestSellers: view.report.top_products.map(p => p.title) });
   const suggestion = suggestFix({ sales: view.report, answerCheck, catalog });
   if (!suggestion) return { suggestion: null, reason: "AI got no catalog facts wrong about the products it sells. Nothing to fix this week." };
-  return { suggestion: await explainFix(suggestion) };
+  return { suggestion: opts.explain ? await explainOnce(suggestion) : suggestion };
 }
 
 async function demoSuggestion(): Promise<WeeklyFixState["demo"]> {
@@ -271,16 +287,16 @@ export async function weeklyFixState(shop: string, graphql: AdminGraphql): Promi
   let live: { suggestion: FixSuggestion | null; reason?: string };
   let error: string | undefined;
   try {
-    live = await liveSuggestion(shop, graphql);
+    live = await liveSuggestion(shop, graphql, { explain: true });
   } catch (e) {
     console.error("Choosing this week's fix failed", e);
     live = { suggestion: null, reason: "This week's fix couldn't be chosen." };
     error = runErrorMessage(e);
   }
   const current = db ? await latestFix(db, shop).catch(() => null) : null;
-  const view = db && current?.status === "applied" ? await loadLatestView(db, shop).catch(() => null) : null;
-  // Measure only with a report generated after the fix went live.
-  const measurement = current && view && view.generatedAt > current.appliedAt ? measureFix(current.baseline, view) : null;
+  // Measure from AI orders placed after the fix went live, in the latest report.
+  const since = db && current?.status === "applied" ? await aiRevenueSince(db, shop, current.appliedAt).catch(() => null) : null;
+  const measurement = current && since && Object.keys(since.revenue).length > 0 ? measureFix(current.baseline, since) : null;
   return {
     writesEnabled,
     suggestion: live.suggestion,
@@ -292,14 +308,37 @@ export async function weeklyFixState(shop: string, graphql: AdminGraphql): Promi
   };
 }
 
-/** Applies this week's fix to the store. The suggestion is chosen again here; nothing from the browser is trusted. */
-export async function applyWeeklyFix(shop: string, graphql: AdminGraphql) {
+/**
+ * Applies this week's fix to the store. The suggestion is chosen again here (nothing from the browser is
+ * trusted) and must be the one the merchant saw (`key`). The store's fix slot is reserved first, so a store
+ * change is always recorded: if recording fails, the store change is reverted.
+ */
+export async function applyWeeklyFix(shop: string, graphql: AdminGraphql, key: string) {
   const db = getDb();
   if (!db) throw new Error("The database is not connected. Set DATABASE_URL and restart the app.");
-  const { suggestion, reason } = await liveSuggestion(shop, graphql);
+  if (!storeWritesEnabled(process.env)) throw new StoreWritesOffError();
+  const { suggestion, reason } = await liveSuggestion(shop, graphql, { explain: false });
   if (!suggestion) throw new Error(reason ?? "There is no fix to apply this week.");
-  const applied = await applyFix(shopifyProductAdmin(runnerFor(graphql)), suggestion, { writesEnabled: storeWritesEnabled(process.env) });
-  return { id: await saveAppliedFix(db, { domain: shop }, applied) };
+  if (suggestion.key !== key) throw new Error("This week's fix changed since the page loaded. Reload to see it before applying.");
+
+  const admin = shopifyProductAdmin(runnerFor(graphql));
+  const id = await reserveFix(db, { domain: shop }, suggestion);
+  let applied: Awaited<ReturnType<typeof applyFix>>;
+  try {
+    applied = await applyFix(admin, suggestion, { writesEnabled: true });
+  } catch (error) {
+    await releaseFix(db, id).catch(e => console.error("Releasing the fix reservation failed", e));
+    throw error;
+  }
+  try {
+    await completeFix(db, id, applied);
+  } catch (error) {
+    console.error("Recording the applied fix failed; reverting the store change", error);
+    await admin.setDescription(suggestion.productId, applied.beforeHtml).catch(e => console.error("Reverting the store change failed", e));
+    await releaseFix(db, id).catch(() => {});
+    throw new Error("The fix couldn't be recorded, so the store change was reverted. Try again.");
+  }
+  return { id };
 }
 
 /** Undoes the store's applied fix, unless the description was edited since. */
@@ -308,7 +347,8 @@ export async function undoWeeklyFix(shop: string, graphql: AdminGraphql) {
   if (!db) throw new Error("The database is not connected. Set DATABASE_URL and restart the app.");
   const current = await latestFix(db, shop);
   if (!current || current.status !== "applied") throw new Error("There is no applied fix to undo.");
+  // "already_undone": the store is back to the old text (an earlier undo wasn't recorded); record it now.
   await undoFix(shopifyProductAdmin(runnerFor(graphql)), current, { writesEnabled: storeWritesEnabled(process.env) });
-  await markFixUndone(db, current.id);
+  if (!(await markFixUndone(db, current.id))) throw new Error("This fix was already undone.");
   return { id: current.id };
 }

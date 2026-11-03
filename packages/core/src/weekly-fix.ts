@@ -67,7 +67,9 @@ export function suggestFix(input: { sales: SalesSnapshot; answerCheck: AnswerChe
       const lines = facts.map(f => sentence(`${label(f.attribute)}: ${f.value}`));
       if (lines.length > 0) {
         // Banned claims no fact speaks to are stated plainly as "Not …", once the description already carries a fact.
-        const loose = product.prohibitedClaims.filter(c => results.some(r => r.issues.some(i => i.kind === "banned_claim" && i.why.includes(`“${c}”`) && !facts.some(f => f.value === i.truth))));
+        const loose = product.prohibitedClaims.filter(c =>
+          results.some(r => r.issues.some(i => i.kind === "banned_claim" && (i.claims ?? []).includes(c) && !facts.some(f => f.value === i.truth)))
+        );
         for (const c of loose) lines.push(sentence(`Not ${c}`));
       }
       return { product, sold, results, lines };
@@ -79,7 +81,7 @@ export function suggestFix(input: { sales: SalesSnapshot; answerCheck: AnswerChe
   if (!pick) return null;
   const periodDays = days(report.period.from, report.period.to);
   const holdouts = report.top_products
-    .filter(p => p.title !== pick.product.title && p.revenue > 0)
+    .filter(p => p.title.toLowerCase() !== pick.product.title.toLowerCase() && p.revenue > 0)
     .slice(0, 2)
     .map(p => ({ title: p.title, aiRevenue: p.revenue }));
   const findings = pick.results.flatMap(r =>
@@ -144,12 +146,27 @@ export async function explainFix(s: FixSuggestion, env: ProviderEnv = process.en
     });
     if (!res.ok) return s;
     const text = readMetaAnswer(await res.json()).trim();
-    // Keep the rewrite only if it kept the facts it was given.
-    const kept = [money(s.evidence.aiRevenue), s.productTitle].every(t => text.includes(t));
-    return text && kept ? { ...s, explanation: text, explanationBy: "meta" } : s;
+    return text && rewriteKeepsFacts(s, text) ? { ...s, explanation: text, explanationBy: "meta" } : s;
   } catch {
     return s;
   }
+}
+
+const numbers = (t: string) => new Set((t.match(/\d[\d,]*(?:\.\d+)?/g) ?? []).map(n => n.replace(/,/g, "")));
+
+/**
+ * A rewrite is kept only if it keeps the dollar amount, the product, and the catalog fact, and every number in
+ * it already appears in the template (so it can't change a weight, a price or a day count, or invent one).
+ */
+export function rewriteKeepsFacts(s: FixSuggestion, text: string): boolean {
+  const allowed = numbers(s.explanation);
+  const truth = s.evidence.findings[0]?.truth ?? "";
+  return (
+    text.includes(money(s.evidence.aiRevenue)) &&
+    text.includes(s.productTitle) &&
+    (!truth || text.includes(truth)) &&
+    [...numbers(text)].every(n => allowed.has(n))
+  );
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -218,13 +235,29 @@ export interface AppliedFix {
   appliedAt: string;
 }
 
-/** Adds the suggestion's text to the top of the product description and returns what to record. Never runs with writes off. */
+/** Whitespace-insensitive form of a description, for comparing what Shopify stored with what was sent. */
+export const normalizeHtml = (html: string) => html.replace(/\s+/g, " ").replace(/>\s+</g, "><").replace(/\s*\/?>/g, ">").trim();
+const textOf = (html: string) =>
+  html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;|&#34;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/**
+ * Adds the suggestion's text to the top of the product description and returns what to record. Never runs with
+ * writes off. `afterHtml` is the description as the store saved it (read back), so undo compares like with like.
+ */
 export async function applyFix(admin: ProductAdmin, s: FixSuggestion, opts: { writesEnabled: boolean; now?: Date }): Promise<AppliedFix> {
   if (!opts.writesEnabled) throw new StoreWritesOffError();
   const beforeHtml = await admin.getDescription(s.productId);
-  if (beforeHtml.includes(`data-centurion-fix="${escapeHtml(s.key)}"`)) throw new Error("This fix is already on the product description.");
-  const afterHtml = `${additionHtml(s)}\n${beforeHtml}`;
-  await admin.setDescription(s.productId, afterHtml);
+  if (textOf(beforeHtml).includes(s.addition)) throw new Error("This fix is already on the product description.");
+  await admin.setDescription(s.productId, `${additionHtml(s)}\n${beforeHtml}`);
+  const afterHtml = await admin.getDescription(s.productId);
   return {
     suggestion: s,
     beforeHtml,
@@ -234,12 +267,21 @@ export async function applyFix(admin: ProductAdmin, s: FixSuggestion, opts: { wr
   };
 }
 
-/** Restores the description from before the fix, only if nobody has edited it since. */
-export async function undoFix(admin: ProductAdmin, fix: Pick<AppliedFix, "suggestion" | "beforeHtml" | "afterHtml">, opts: { writesEnabled: boolean }): Promise<void> {
+/**
+ * Restores the description from before the fix, only if nobody has edited it since. Returns "already_undone"
+ * when the description is already back to its old text (an undo that finished in the store but wasn't recorded).
+ */
+export async function undoFix(
+  admin: ProductAdmin,
+  fix: Pick<AppliedFix, "suggestion" | "beforeHtml" | "afterHtml">,
+  opts: { writesEnabled: boolean }
+): Promise<"restored" | "already_undone"> {
   if (!opts.writesEnabled) throw new StoreWritesOffError();
-  const current = await admin.getDescription(fix.suggestion.productId);
-  if (current !== fix.afterHtml) throw new UndoConflictError();
+  const current = normalizeHtml(await admin.getDescription(fix.suggestion.productId));
+  if (current === normalizeHtml(fix.beforeHtml)) return "already_undone";
+  if (current !== normalizeHtml(fix.afterHtml)) throw new UndoConflictError();
   await admin.setDescription(fix.suggestion.productId, fix.beforeHtml);
+  return "restored";
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -247,30 +289,38 @@ export async function undoFix(admin: ProductAdmin, fix: Pick<AppliedFix, "sugges
 // ---------------------------------------------------------------------------------------------
 
 export interface FixMeasurement {
-  /** AI revenue per day, before (baseline report) and after (a report from after the fix). */
+  /** AI revenue per day: before (the report the fix was chosen from) and after (AI orders since the fix went live). */
   product: { before: number; after: number; change: number };
+  /** Average per holdout product. */
   holdouts: { before: number; after: number; change: number };
   /** Change for the fixed product minus the holdouts' average change, in AI revenue per day. */
   lift: number;
+  afterDays: number;
+}
+
+/** AI revenue per product from orders placed after the fix went live, over `periodDays` days. */
+export interface SalesSince {
+  periodDays: number;
+  revenue: Record<string, number>;
 }
 
 /**
  * Difference in differences: how much the fixed product's AI revenue per day moved, beyond how much the
- * unchanged holdout products moved over the same time. Plain arithmetic on AI Sales report numbers.
+ * unchanged holdout products moved over the same time. Plain arithmetic. `after` must cover only orders placed
+ * after the fix went live (aiRevenueSince); a product with no AI orders since then has $0. Null without holdouts,
+ * since there is nothing to compare against.
  */
-export function measureFix(baseline: FixBaseline, after: AiSalesView): FixMeasurement {
-  const afterDays = days(after.report.period.from, after.report.period.to);
-  const revenue = (title: string) => after.report.top_products.find(p => p.title === title)?.revenue ?? 0;
-  const perDay = (n: number, d: number) => Math.round((n / d) * 100) / 100;
-  const product = { before: perDay(baseline.product.aiRevenue, baseline.periodDays), after: perDay(revenue(baseline.product.title), afterDays) };
-  const n = baseline.holdouts.length || 1;
-  const hBefore = perDay(baseline.holdouts.reduce((s, h) => s + h.aiRevenue, 0) / n, baseline.periodDays);
-  const hAfter = perDay(baseline.holdouts.reduce((s, h) => s + revenue(h.title), 0) / n, afterDays);
-  const pChange = Math.round((product.after - product.before) * 100) / 100;
-  const hChange = baseline.holdouts.length ? Math.round((hAfter - hBefore) * 100) / 100 : 0;
-  return {
-    product: { ...product, change: pChange },
-    holdouts: { before: baseline.holdouts.length ? hBefore : 0, after: baseline.holdouts.length ? hAfter : 0, change: hChange },
-    lift: Math.round((pChange - hChange) * 100) / 100
+export function measureFix(baseline: FixBaseline, after: SalesSince): FixMeasurement | null {
+  if (baseline.holdouts.length === 0 || baseline.periodDays <= 0 || after.periodDays <= 0) return null;
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const revenue = (title: string) => after.revenue[title] ?? 0;
+  const n = baseline.holdouts.length;
+  const product = { before: r2(baseline.product.aiRevenue / baseline.periodDays), after: r2(revenue(baseline.product.title) / after.periodDays) };
+  const holdouts = {
+    before: r2(baseline.holdouts.reduce((s, h) => s + h.aiRevenue, 0) / n / baseline.periodDays),
+    after: r2(baseline.holdouts.reduce((s, h) => s + revenue(h.title), 0) / n / after.periodDays)
   };
+  const pChange = r2(product.after - product.before);
+  const hChange = r2(holdouts.after - holdouts.before);
+  return { product: { ...product, change: pChange }, holdouts: { ...holdouts, change: hChange }, lift: r2(pChange - hChange), afterDays: after.periodDays };
 }

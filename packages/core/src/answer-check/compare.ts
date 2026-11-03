@@ -229,7 +229,8 @@ function bannedClaimIssues(answer: string, p: CatalogProduct): Issue[] {
       said,
       truth: related ? related.value : `Not an approved claim.${approved}`,
       source: related ? sourceText(related.source) : "Your banned claims list",
-      why: `${list} you’ve banned for this product. Shoppers who buy on a claim you don’t make are likely to return it.`
+      why: `${list} you’ve banned for this product. Shoppers who buy on a claim you don’t make are likely to return it.`,
+      claims
     };
   });
 }

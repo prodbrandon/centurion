@@ -1,12 +1,13 @@
 import {
   createAnswerProviders,
   DEMO_NORTHPINE_CATALOG,
+  DEMO_SALES_SNAPSHOT,
   explainFix,
   runAnswerCheck,
   suggestFix
 } from "@centurion/core/server";
 import { FixActions } from "@/components/FixActions";
-import { getAiSales, money } from "@/lib/data";
+import { money } from "@/lib/data";
 
 export const metadata = { title: "Weekly Fix · Centurion" };
 
@@ -18,9 +19,9 @@ export const revalidate = 3600;
  * on the demo catalog. Apply and undo here change a copy of the description in the browser only.
  */
 export default async function WeeklyFixPage() {
-  const { view } = await getAiSales();
+  // Always the demo store's numbers: the demo catalog's products only exist there, even in live mode.
   const answerCheck = await runAnswerCheck({ catalog: DEMO_NORTHPINE_CATALOG, providers: createAnswerProviders(process.env) });
-  const chosen = view ? suggestFix({ sales: view.report, answerCheck, catalog: DEMO_NORTHPINE_CATALOG }) : null;
+  const chosen = suggestFix({ sales: DEMO_SALES_SNAPSHOT, answerCheck, catalog: DEMO_NORTHPINE_CATALOG });
   const suggestion = chosen ? await explainFix(chosen) : null;
 
   if (!suggestion) {

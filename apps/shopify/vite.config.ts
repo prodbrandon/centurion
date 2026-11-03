@@ -45,7 +45,7 @@ export default defineConfig({
     hmr: hmrConfig,
     fs: {
       // See https://vitejs.dev/config/server-options.html#server-fs-allow for more information
-      // packages/core holds the browser-safe shared code (wording, preview fixtures).
+      // packages/core holds the browser-safe shared code (types, wording, sample runs).
       // Engine and database code only runs server-side and is never served.
       allow: ["app", "node_modules", "../../packages/core/src"],
     },

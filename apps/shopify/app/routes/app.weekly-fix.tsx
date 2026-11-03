@@ -14,9 +14,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
-  const intent = String((await request.formData()).get("intent"));
+  const form = await request.formData();
+  const intent = String(form.get("intent"));
   try {
-    if (intent === "apply") return { ok: true as const, intent, ...(await applyWeeklyFix(session.shop, admin.graphql)) };
+    if (intent === "apply") return { ok: true as const, intent, ...(await applyWeeklyFix(session.shop, admin.graphql, String(form.get("key") ?? ""))) };
     if (intent === "undo") return { ok: true as const, intent, ...(await undoWeeklyFix(session.shop, admin.graphql)) };
     return { ok: false as const, error: "Unknown action." };
   } catch (error) {
@@ -75,7 +76,7 @@ export default function WeeklyFix() {
     else shopify.toast.show("That didn't work", { isError: true });
   }, [fetcher.state, fetcher.data, shopify]);
 
-  const submit = (intent: "apply" | "undo") => fetcher.submit({ intent }, { method: "POST" });
+  const submit = (intent: "apply" | "undo") => fetcher.submit({ intent, key: state.suggestion?.key ?? "" }, { method: "POST" });
 
   return (
     <s-page heading="This week’s fix">
@@ -109,11 +110,11 @@ export default function WeeklyFix() {
               <s-paragraph>
                 AI revenue per day: {money(state.measurement.product.before)} → {money(state.measurement.product.after)} for this product,{" "}
                 {money(state.measurement.holdouts.before)} → {money(state.measurement.holdouts.after)} for the holdouts. Difference:{" "}
-                {state.measurement.lift >= 0 ? "+" : ""}
-                {money(state.measurement.lift)} a day.
+                {state.measurement.lift >= 0 ? "+" : "−"}
+                {money(Math.abs(state.measurement.lift))} a day, over {state.measurement.afterDays} days since the fix.
               </s-paragraph>
             ) : (
-              <s-text color="subdued">Run AI Sales again next week to compare this product with its holdouts.</s-text>
+              <s-text color="subdued">Once AI orders come in after the fix, run AI Sales again to compare this product with its holdouts.</s-text>
             )}
             <s-button onClick={() => submit("undo")} {...(busy ? { loading: true } : {})} {...(!state.writesEnabled ? { disabled: true } : {})}>
               Undo
@@ -134,7 +135,7 @@ export default function WeeklyFix() {
                 variant="primary"
                 onClick={() => submit("apply")}
                 {...(busy ? { loading: true } : {})}
-                {...(!state.writesEnabled || applied?.suggestion.key === state.suggestion.key ? { disabled: true } : {})}
+                {...(!state.writesEnabled || applied ? { disabled: true } : {})}
               >
                 Apply this fix
               </s-button>

@@ -1,5 +1,6 @@
 -- Weekly Fix: each change applied to a store, with the exact description before and after (for undo) and
--- the AI revenue baseline of the product and its holdouts (for measuring the effect).
+-- the AI revenue baseline of the product and its holdouts (for measuring the effect). A row is reserved as
+-- 'pending' before the store is written, so a store change is never left unrecorded.
 
 create table weekly_fixes (
   id            uuid primary key default gen_random_uuid(),
@@ -7,16 +8,18 @@ create table weekly_fixes (
   fix_key       text not null,                 -- rule:product:field
   product_id    text not null,
   product_title text not null,
-  status        text not null check (status in ('applied', 'undone')),
+  status        text not null check (status in ('pending', 'applied', 'undone')),
   suggestion    jsonb not null,                -- FixSuggestion
-  before_html   text not null,
-  after_html    text not null,
-  baseline      jsonb not null,                -- FixBaseline
-  applied_at    timestamptz not null,
-  undone_at     timestamptz
+  before_html   text,                          -- set when applied
+  after_html    text,                          -- as the store saved it
+  baseline      jsonb,                         -- FixBaseline
+  created_at    timestamptz not null default now(),
+  applied_at    timestamptz,
+  undone_at     timestamptz,
+  check (status = 'pending' or (before_html is not null and after_html is not null and baseline is not null and applied_at is not null))
 );
-create index weekly_fixes_shop_applied_idx on weekly_fixes (shop_id, applied_at desc);
--- A fix can be live on a product only once at a time.
-create unique index weekly_fixes_one_applied_idx on weekly_fixes (shop_id, fix_key) where status = 'applied';
+create index weekly_fixes_shop_created_idx on weekly_fixes (shop_id, created_at desc);
+-- One fix at a time per store: a second can't start while one is being applied or is live.
+create unique index weekly_fixes_one_live_idx on weekly_fixes (shop_id) where status in ('pending', 'applied');
 
 alter table weekly_fixes enable row level security;
