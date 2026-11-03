@@ -11,18 +11,23 @@ import { OrderSchema, type Order } from "./types.ts";
 
 const HELP = `attribution: find the orders AI sent you
 
-  attribution report   --input orders.json | --shop x.myshopify.com --token T [--days 90] [--json] [--out file]
-  attribution discover --input orders.json | --shop ... --token ...
+  attribution report   [--input orders.json | --shop my-store] [--days 90] [--json] [--out file]
+  attribution discover [--input orders.json | --shop my-store]
   attribution promote  --id name --label Name --vendor Vendor (--host h | --utm u) --by you
 
-Env: AI_SIGNATURES (signature file path), SHOPIFY_API_VERSION`;
+Without --input, orders are fetched from the live store named by --shop or SHOPIFY_SHOP.
 
-async function loadOrders(v: Record<string, string | boolean | undefined>): Promise<Order[]> {
+Env:
+  SHOPIFY_SHOP           store handle (my-store) or domain (my-store.myshopify.com)
+  SHOPIFY_CLIENT_ID      Dev Dashboard app client id (client credentials grant)
+  SHOPIFY_CLIENT_SECRET  Dev Dashboard app client secret
+  SHOPIFY_API_VERSION    Admin API version (default 2026-10)
+  AI_SIGNATURES          alternative signature file path`;
+
+async function loadOrders(v: Record<string, string | boolean | undefined>, shop: string | undefined): Promise<Order[]> {
   if (typeof v.input === "string") return z.array(OrderSchema).parse(JSON.parse(readFileSync(v.input, "utf8")));
-  if (typeof v.shop === "string" && typeof v.token === "string") {
-    return fetchOrders({ shop: v.shop, token: v.token, days: Number(v.days ?? 90) });
-  }
-  throw new Error("Give --input orders.json, or --shop and --token.");
+  if (shop) return fetchOrders({ shop, days: Number(v.days ?? 90) });
+  throw new Error("Give --input orders.json, or --shop (or SHOPIFY_SHOP) with SHOPIFY_CLIENT_ID and SHOPIFY_CLIENT_SECRET set.");
 }
 
 async function main() {
@@ -30,7 +35,7 @@ async function main() {
   const { values } = parseArgs({
     args: rest,
     options: {
-      input: { type: "string" }, shop: { type: "string" }, token: { type: "string" }, days: { type: "string" },
+      input: { type: "string" }, shop: { type: "string" }, days: { type: "string" },
       json: { type: "boolean" }, out: { type: "string" }, store: { type: "string" },
       id: { type: "string" }, label: { type: "string" }, vendor: { type: "string" },
       host: { type: "string" }, utm: { type: "string" }, by: { type: "string" }
@@ -38,18 +43,19 @@ async function main() {
   });
   const sigPath = process.env.AI_SIGNATURES;
   const file = loadSignatures(sigPath);
+  const shop = values.input ? values.shop : values.shop ?? process.env.SHOPIFY_SHOP;
 
   if (command === "report") {
-    const orders = await loadOrders(values);
+    const orders = await loadOrders(values, shop);
     const report = buildReport(orders, classifyOrders(orders, file.signatures), file.signatures);
-    const text = values.json ? JSON.stringify(report, null, 2) : renderMarkdown(report, values.store ?? values.shop ?? "Your store");
+    const text = values.json ? JSON.stringify(report, null, 2) : renderMarkdown(report, values.store ?? shop ?? "Your store");
     if (values.out) writeFileSync(values.out, `${text}\n`);
     else process.stdout.write(`${text}\n`);
     return;
   }
   if (command === "discover") {
-    const orders = await loadOrders(values);
-    const found = discoverCandidates(orders, file, values.shop?.replace(".myshopify.com", ""));
+    const orders = await loadOrders(values, shop);
+    const found = discoverCandidates(orders, file, shop?.replace(".myshopify.com", ""));
     if (found.length === 0) return void process.stdout.write("No unknown referrers or utm tags with orders.\n");
     process.stdout.write("Unknown sources that drove orders (approve real AI sources with `attribution promote`):\n");
     for (const c of found.slice(0, 20)) {

@@ -24,8 +24,8 @@ npm test
 npm run sample       # write 90 days of sample orders for a fictional store
 npm run report       # plain-language report on the sample
 
-# Live store (custom app token with read_orders)
-npx tsx src/cli.ts report --shop your-store.myshopify.com --token <admin-api-token> --days 60
+# Live store (Dev Dashboard app with read_orders; see Environment)
+SHOPIFY_SHOP=your-store npx tsx src/cli.ts report --days 60
 
 # Grow the signature dataset
 npx tsx src/cli.ts discover --input data/sample-orders.json
@@ -38,8 +38,13 @@ npx tsx src/cli.ts promote --id mistral --label "Le Chat" --vendor Mistral --hos
 
 | Variable | Meaning |
 | --- | --- |
+| `SHOPIFY_SHOP` | Store for live fetches, as `your-store` or `your-store.myshopify.com`. `--shop` overrides it |
+| `SHOPIFY_CLIENT_ID` | Client ID of a Dev Dashboard app with the `read_orders` scope |
+| `SHOPIFY_CLIENT_SECRET` | Client secret of the same app |
+| `SHOPIFY_API_VERSION` | Admin API version for live fetches (default `2026-10`) |
 | `AI_SIGNATURES` | Alternative path to the signature file |
-| `SHOPIFY_API_VERSION` | Admin API version for live fetches |
+
+Live fetches get an Admin API access token through the client credentials grant (`packages/core/src/shopify-auth.ts`). The app must be in the same Shopify organization as the store and installed on it. Tokens last about 24 hours and are refreshed automatically, so a long fetch keeps working across an expiry.
 
 ## Known limits
 
