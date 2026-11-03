@@ -1,0 +1,16 @@
+# Build context is the repository root (see apps/shopify/Dockerfile).
+**/node_modules
+**/build
+**/dist
+**/.cache
+**/.react-router
+**/.next
+**/.shopify
+**/*.sqlite
+**/*.log
+**/.env
+**/.env.*
+.git
+apps/web
+apps/gateway
+supabase

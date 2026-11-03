@@ -31,7 +31,14 @@ All classification and storage goes through `@centurion/core` (`packages/core`),
    (cd ../../packages/core && npm install)
    npm install
    ```
-2. Database: apply `../../supabase/migrations/` to a Postgres database and set `DATABASE_URL` in the repo root `.env` (or in `apps/shopify/.env`). Without it the app still loads and shows a "Database not connected" banner.
+2. Database: set `DATABASE_URL` in `apps/shopify/.env`. Shopify sessions are stored in the same Postgres database as the Centurion tables, in a `Session` table managed by Prisma (`prisma/schema.prisma`, `prisma/migrations/`). On Supabase, use the direct connection or the session pooler (port 5432) here: Prisma migrations don't run through the transaction pooler.
+   - **Empty database:** run `npx prisma migrate deploy` first, then apply `../../supabase/migrations/` in filename order.
+   - **Database that already has the Centurion tables** (Prisma refuses to migrate a non-empty database it hasn't seen before, error P3005): create the `Session` table and record its migration as applied once:
+     ```bash
+     npx prisma db execute --file prisma/migrations/20261103000000_create_session_table/migration.sql --schema prisma/schema.prisma
+     npx prisma migrate resolve --applied 20261103000000_create_session_table
+     ```
+   After that, `prisma migrate deploy` (run by `shopify app dev` and on container start) only applies new session migrations.
 3. Install Shopify CLI 5.0 or newer globally (`npm install -g @shopify/cli@latest`). Then link your own app and development store:
    ```bash
    shopify app config link
@@ -51,8 +58,18 @@ npm run build
 
 To see AI Sales populate in development, create test orders whose landing URL carries an AI referrer or `utm_source=chatgpt.com`, then press **Run report**.
 
+## Container
+
+The image is built from the repository root, so `packages/core` and `packages/attribution` are in the build context:
+
+```bash
+# from the repository root
+docker build -f apps/shopify/Dockerfile -t centurion-shopify .
+docker run -p 3000:3000 --env-file apps/shopify/.env centurion-shopify
+```
+
+On start the container runs `prisma generate && prisma migrate deploy` (prepare the database as in Setup step 2 first), then serves the app on port 3000. It needs `DATABASE_URL`, `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SHOPIFY_APP_URL` and `SCOPES`.
+
 ## Known limits
 
-- Sessions are stored in SQLite (`prisma/dev.sqlite`) for local development. Hosted deployments need a shared database for sessions.
-- The `Dockerfile` copies only this folder. A container build needs the repository root as its context so `packages/core` and `packages/attribution` are included.
 - `customerJourneySummary` parsing has not yet been run against production order data.

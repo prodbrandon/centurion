@@ -54,7 +54,7 @@ cd packages/core && npm install && npm test
 cd apps/web && npm install && npm run dev
 
 # Shopify app: needs a Shopify Partner account, a development store and Shopify CLI 5.0+
-cp .env.example .env    # set DATABASE_URL
+cp .env.example apps/shopify/.env    # set DATABASE_URL; see apps/shopify/README.md for the database setup
 cd apps/shopify && npm install && shopify app dev
 ```
 

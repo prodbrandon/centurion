@@ -57,7 +57,7 @@ export default function AiSales() {
       ) : null}
       {!state.configured ? (
         <s-banner tone="critical" heading="Database not connected">
-          <s-paragraph>Set DATABASE_URL in apps/shopify/.env or the repo root .env, then restart `shopify app dev`.</s-paragraph>
+          <s-paragraph>Set DATABASE_URL in apps/shopify/.env, then restart `shopify app dev`.</s-paragraph>
         </s-banner>
       ) : state.error ? (
         <s-banner tone="critical" heading="Can't reach the database">
