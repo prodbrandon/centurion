@@ -4,3 +4,5 @@ export * from "./copy.ts";
 export * from "./preview.ts";
 export type * from "./types.ts";
 export type * from "./answer-check/types.ts";
+export type * from "./checkout-types.ts";
+export { TEST_PAGE_CHECKOUT_RUN } from "./checkout-sample.ts";

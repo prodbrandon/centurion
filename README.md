@@ -19,6 +19,7 @@ apps/
   gateway/        MCP server that answers outside AI agents with a brand's verified facts
 packages/
   attribution/    Order classifier, AI source signatures, reports and CLI
+  checkout-test/  Agent Checkout Test worker (Playwright) and its local test store
   core/           Shared view builder and Postgres store used by both apps
 supabase/
   migrations/     Postgres schema
@@ -26,11 +27,12 @@ supabase/
 
 | Package | Status |
 | --- | --- |
-| `apps/shopify` | **AI Sales** works end to end. **Answer Check** asks Meta Llama about the store and checks every answer against the catalog (labeled fixture answers until `META_API_KEY` is set). Checkout Test and Weekly Fix are labeled Preview and show sample data. |
-| `apps/web` | Demo mode renders real attribution output on 1,500 sample orders, and the real Answer Check pipeline on the demo catalog (fixture answers, labeled). Other screens are labeled Preview. |
+| `apps/shopify` | **AI Sales** works end to end. **Answer Check** asks Meta Llama about the store and checks every answer against the catalog (labeled fixture answers until `META_API_KEY` is set). **Checkout Test** shows real agent runs (a test-page run until the store itself is tested). Weekly Fix is labeled Preview and shows sample data. |
+| `apps/web` | Demo mode renders real attribution output on 1,500 sample orders, the real Answer Check pipeline on the demo catalog (fixture answers, labeled), and a real Checkout Test run on the local test page (labeled). Weekly Fix is labeled Preview. |
 | `apps/gateway` | Working MCP server on sample data with development tokens. Not part of the first release. |
 | `packages/attribution` | Classifier, report and signature dataset tooling, with tests. Live Shopify fetch not yet run against production order data. |
 | `packages/core` | View builder and Postgres store, with a round-trip test on an in-process Postgres (PGlite). |
+| `packages/checkout-test` | Checkout agent in headless Chromium: video, step log, payment guard, failure corpus table. Tested against a local test store. |
 
 ## Where we use Meta AI
 
@@ -59,6 +61,9 @@ cd packages/attribution && npm install && npm test && npm run report
 # Core: tests, including a Postgres round trip on PGlite
 cd packages/core && npm install && npm test
 
+# Checkout agent: tests in headless Chromium, then one run on the local test store
+cd packages/checkout-test && npm install && npm test && npm run test-page
+
 # Web demo, no accounts needed (http://localhost:3000)
 cd apps/web && npm install && npm run dev
 
@@ -80,6 +85,8 @@ Part of this code predates the hackathon. File and dataset dates are left as the
   - Nov 3: Shopify app container builds from the repository root; Shopify sessions moved from SQLite to the shared Postgres database.
   - Nov 3: Live store access through the client credentials grant (`getShopifyToken`), replacing pasted tokens in the CLI.
   - Nov 3: **AI Answer Check** with Meta Llama as the primary provider: question builder, deterministic catalog comparison, Llama API client (live with `META_API_KEY`), labeled fixtures, stored runs (`answer_checks` table). Replaces the Preview screen in both apps.
+  - Nov 3: **Run report in the background**: the run starts and returns at once, throttled pages are retried, one run per store at a time, and a heartbeat fails runs stopped by a restart.
+  - Nov 3: **Agent Checkout Test**: a Playwright agent shops a storefront up to checkout and stops, with a payment guard, a video, a pass/slowed/blocked step log and a failure corpus table (`checkout_runs`). Replaces the Preview screen with a real run on a local test page.
 
 ## 3-minute demo
 
@@ -88,7 +95,7 @@ Everything below runs locally with no accounts: `cd apps/web && npm install && n
 1. **The problem (0:00 to 0:20).** Shoppers now ask ChatGPT, Perplexity and Gemini what to buy. Store owners can't see which sales came from those assistants, or what the assistants are telling shoppers about their products.
 2. **AI Sales (0:20 to 1:10), `/`.** Northpine Outfitters is a fictional store with 1,500 sample orders. The engine finds 99 AI-sent orders worth $18,861 (6.5% of revenue) and splits them by assistant and by path (found through AI vs came back through AI). Scroll to **Every AI order, with proof**: each order shows the exact signal that matched (an AI referrer, a `utm_source`, or an AI sales channel). Point out **Not counted, but worth watching**: likely AI visits without proof are never counted as revenue.
 3. **AI Answer Check (1:10 to 2:15), `/answer-check`.** This is the Meta Llama feature. Read the **Fixture data** label first: no Llama key is set yet, so the answers are written samples tagged with the assistant they stand in for. The check itself is real. Show the first finding: an assistant calls the Trailhead 2 jacket "fully waterproof", the catalog says "DWR-coated shell, not waterproof" with the lab-results source, and the claim is on the store's banned list. Then the pack: "ultralight at about 0.9 kg" is caught twice, once as a banned claim and once as a wrong weight (the catalog says 1.3 kg). The comparison normalizes units, so "900 g" would be caught the same way. Scroll to **Every answer** to show answers that passed, including "water resistant, not waterproof". Say plainly: with `META_API_KEY` set, the same screen shows live Llama answers, and no model decides what's wrong.
-4. **Checkout Test and Weekly Fix (2:15 to 2:45).** Both are labeled Preview. Checkout Test shows an agent shopping the store and where it got stuck. Weekly Fix shows the one change suggested this week, with apply, undo and holdout products for measuring it.
+4. **Checkout Test and Weekly Fix (2:15 to 2:45), `/checkout-test` and `/weekly-fix`.** Checkout Test is a real run of the checkout agent on a local test page (labeled), not on Northpine: it reached checkout in 7 steps and stopped before payment, and flagged two problems with fixes, an unlabeled size picker and a popup covering the checkout button. To show it live, run `cd packages/checkout-test && npm install && npm run test-page`, which prints the same step log and saves a video. Weekly Fix is labeled Preview: the one change suggested this week, with apply, undo and holdout products for measuring it.
 5. **Inside Shopify (2:45 to 3:00).** The same screens run as an embedded Shopify admin app (`apps/shopify`), built from the same `packages/core` code, so the numbers can't drift. AI Sales runs live on a store's orders; Answer Check asks Llama about the store's own products once a key is set.
 
 ## License

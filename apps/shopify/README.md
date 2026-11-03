@@ -9,7 +9,7 @@ All classification and storage goes through `@centurion/core` (`packages/core`),
 | Screen | Route | Data |
 | --- | --- | --- |
 | AI Sales | `/app` | Live. **Run report** starts a background run that fetches the last 60 days of orders (retrying throttled pages), classifies them and stores the run in Postgres. The screen shows the run's progress and renders the result when it is done. |
-| Checkout Test | `/app/checkout-test` | Preview, sample data |
+| Checkout Test | `/app/checkout-test` | The store's latest checkout agent run from `checkout_runs`, run with `packages/checkout-test`. Until the store is tested it shows the latest test-page run, labeled as such. |
 | Answer Check | `/app/answer-check` | Live with `META_API_KEY`: **Ask Meta Llama now** asks Llama about the store's products (AI best sellers first), compares each answer with the catalog by fixed rules and stores the run. Without a key it shows a fixture run on the Northpine demo catalog, labeled as sample answers. |
 | Weekly Fix | `/app/weekly-fix` | Preview. Apply and undo do not change the store. |
 

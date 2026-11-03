@@ -12,6 +12,7 @@ import {
   isMetaLive,
   latestReportRun,
   loadLatestAnswerCheck,
+  loadLatestCheckoutRun,
   loadLatestView,
   META_DEFAULT_MODEL,
   REPORT_DAYS,
@@ -20,9 +21,11 @@ import {
   runAnswerCheck,
   saveAnswerCheck,
   startReportJob,
+  TEST_PAGE_CHECKOUT_RUN,
   type AiSalesView,
   type AnswerCheckRun,
   type AnswerResult,
+  type CheckoutRunResult,
   type GraphqlRunner,
   type RunStatus
 } from "@centurion/core/server";
@@ -177,4 +180,30 @@ export async function runLiveAnswerCheck(input: { shop: string; graphql: AdminGr
   const run = await runAnswerCheck({ catalog, providers: createAnswerProviders(process.env), questions: buildQuestions(catalog, { maxProducts: 5, maxPerProduct: 3 }) });
   if (db) await saveAnswerCheck(db, { domain: input.shop, name: catalog.store.name }, run);
   return { asked: run.asked, contradictions: run.contradictions, errors: run.errors, ...withFindings(run) };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Agent Checkout Test
+// ---------------------------------------------------------------------------------------------
+
+export type CheckoutTestState = {
+  run: CheckoutRunResult;
+  /** shop: a run on this store. test_page_db: the latest stored test-page run. test_page_sample: the committed test-page run. */
+  source: "shop" | "test_page_db" | "test_page_sample";
+};
+
+/** The shop's latest checkout run, else the latest test-page run, else the committed test-page run. */
+export async function checkoutTestState(shop: string): Promise<CheckoutTestState> {
+  const db = getDb();
+  if (db) {
+    try {
+      const own = await loadLatestCheckoutRun(db, shop);
+      if (own) return { run: own, source: "shop" };
+      const testPage = await loadLatestCheckoutRun(db, null);
+      if (testPage) return { run: testPage, source: "test_page_db" };
+    } catch (error) {
+      console.error("Loading checkout runs failed", error);
+    }
+  }
+  return { run: TEST_PAGE_CHECKOUT_RUN, source: "test_page_sample" };
 }

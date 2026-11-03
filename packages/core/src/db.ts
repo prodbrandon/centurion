@@ -9,6 +9,7 @@ import { classifyOrders } from "../../attribution/src/classify.ts";
 import type { Attribution, Order, SignatureFile } from "../../attribution/src/types.ts";
 import { currentSignatures } from "./signatures.ts";
 import type { AnswerCheckRun } from "./answer-check/types.ts";
+import type { CheckoutRunResult } from "./checkout-types.ts";
 import type { AiSalesView } from "./types.ts";
 import { assembleView, canonicalOrders } from "./view.ts";
 
@@ -395,4 +396,53 @@ export async function loadLatestAnswerCheck(db: Queryable, shopDomain: string): 
   );
   if (!row) return null;
   return typeof row.result === "string" ? (JSON.parse(row.result) as AnswerCheckRun) : row.result;
+}
+
+/** Stores a checkout test run in the failure corpus. `shop` is null for runs on the local test page. */
+export async function saveCheckoutRun(db: Queryable, input: { shop: ShopInfo | null; run: CheckoutRunResult }): Promise<string> {
+  const { run } = input;
+  const shopId = input.shop ? await upsertShop(db, input.shop) : null;
+  const failed = run.failedStep ? run.steps.find(s => s.n === run.failedStep) : undefined;
+  const [row] = await db.query<{ id: string }>(
+    `insert into checkout_runs (shop_id, target_url, target_kind, agent, result, failed_step, failure_kind, problems, steps, video_path, result_json, started_at, finished_at)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9::text::jsonb, $10, $11::text::jsonb, $12, $13) returning id`,
+    [
+      shopId,
+      run.target.url,
+      run.target.kind,
+      run.agent,
+      run.result,
+      run.failedStep,
+      failed?.title ?? null,
+      run.problems,
+      json(run.steps),
+      run.videoPath,
+      json(run),
+      run.startedAt,
+      run.finishedAt
+    ]
+  );
+  return row!.id;
+}
+
+/** The latest checkout test run for a shop, or for the local test page when `shopDomain` is null. */
+export async function loadLatestCheckoutRun(db: Queryable, shopDomain: string | null): Promise<CheckoutRunResult | null> {
+  const [row] = await db.query<{ result_json: CheckoutRunResult | string }>(
+    shopDomain
+      ? `select c.result_json from checkout_runs c join shops s on s.id = c.shop_id
+         where s.shop_domain = $1 and s.uninstalled_at is null order by c.started_at desc limit 1`
+      : `select result_json from checkout_runs where shop_id is null and target_kind = 'test_page' and $1::text is null order by started_at desc limit 1`,
+    [shopDomain]
+  );
+  if (!row) return null;
+  return typeof row.result_json === "string" ? (JSON.parse(row.result_json) as CheckoutRunResult) : row.result_json;
+}
+
+/** Failure corpus summary: how often each step blocked agents, across all runs. No store names. */
+export async function checkoutFailureCounts(db: Queryable): Promise<{ failureKind: string; runs: number }[]> {
+  const rows = await db.query<{ failure_kind: string; runs: number }>(
+    `select failure_kind, count(*)::int as runs from checkout_runs where result = 'blocked' and failure_kind is not null
+     group by failure_kind order by runs desc, failure_kind`
+  );
+  return rows.map(r => ({ failureKind: r.failure_kind, runs: Number(r.runs) }));
 }

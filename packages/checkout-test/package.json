@@ -1,0 +1,25 @@
+{
+  "name": "@centurion/checkout-test",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agent Checkout Test: a browser agent that shops a storefront up to checkout, never pays, and records a video and a step log.",
+  "type": "module",
+  "scripts": {
+    "test": "tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "test-page": "tsx src/cli.ts --test-page",
+    "check": "tsx src/cli.ts"
+  },
+  "engines": { "node": ">=22.12" },
+  "dependencies": {
+    "@centurion/core": "file:../core",
+    "playwright": "1.63.0",
+    "postgres": "3.4.9"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.11",
+    "@types/node": "^24.0.0",
+    "tsx": "4.23.15",
+    "typescript": "^5.9.3"
+  }
+}

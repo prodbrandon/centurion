@@ -5,7 +5,7 @@ Standalone version of the Centurion screens, for viewing the product without a S
 | Screen | Route | Data |
 | --- | --- | --- |
 | AI Sales | `/` | Real attribution output on 1,500 sample orders (`data/demo.json`) |
-| Checkout Test | `/checkout-test` | Preview, sample data |
+| Checkout Test | `/checkout-test` | A real run of the checkout agent on its local test page (`packages/core/src/checkout-sample.ts`), labeled as a test-page run |
 | Answer Check | `/answer-check` | The real Answer Check pipeline on the Northpine demo catalog. Fixture answers (labeled) unless `META_API_KEY` is set, then Meta Llama answers live |
 | Weekly Fix | `/weekly-fix` | Preview. Apply and undo run in the browser only. |
 

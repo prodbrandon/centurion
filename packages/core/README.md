@@ -24,6 +24,10 @@ Asks AI assistants the questions shoppers ask about a store and flags answers th
 
 `saveAnswerCheck` and `loadLatestAnswerCheck` store runs in the `answer_checks` table.
 
+## Checkout test runs
+
+`checkout-types.ts` holds the run shape the worker in `packages/checkout-test` produces. `saveCheckoutRun`, `loadLatestCheckoutRun` and `checkoutFailureCounts` read and write `checkout_runs`, the failure corpus. `TEST_PAGE_CHECKOUT_RUN` (`checkout-sample.ts`) is a real run on the local test page, shown by both apps until a store is tested.
+
 ## Background report runs (`src/jobs.ts`)
 
 `startReportJob(db, { shop, days, fetchOrders })` creates the run (`running`) and returns its id at once; the injected `fetchOrders` and the store step run afterwards, and `done` settles as `done` or `failed`, never rejecting. `retryingRunner` wraps a GraphQL runner so throttled pages (`THROTTLED` or HTTP 429) are retried with exponential backoff. Only one report runs per shop at a time (`RunInProgressError` carries the running run's id). The fetcher calls `progress()` as pages arrive to keep the run's heartbeat fresh; `failStaleRuns` fails runs with no progress for 10 minutes (a stopped process), and a run already failed can never flip to `done`. `latestReportRun` gives the status for polling. `saveReportRun` is the same steps run inline.
