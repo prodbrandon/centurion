@@ -25,6 +25,10 @@ export interface TestStoreOptions {
   silentAdd?: boolean;
   /** Color swatches (hidden radio inputs with clickable labels) instead of a size dropdown. */
   swatches?: boolean;
+  /** Swatches whose label wraps a hidden input with no id. */
+  wrappedSwatches?: boolean;
+  /** Distractions: a hidden quick-add with sold-out radios, and a newsletter yes/no form. */
+  distractions?: boolean;
 }
 
 export interface TestStore {
@@ -99,18 +103,29 @@ function render(path: string, query: URLSearchParams, opts: TestStoreOptions): s
   const product = PRODUCTS.find(p => path === `/products/${p.handle}`);
   if (product) {
     const label = opts.unlabeledSize ? "" : `<label for="size">Size</label>`;
-    const size = opts.swatches
-      ? `<fieldset><legend>Color</legend>${["Pine", "Slate", "Ember"]
+    const size = opts.wrappedSwatches
+      ? `<fieldset><legend>Color</legend>${["Pine", "Slate"]
           .map(
             c =>
-              `<input type="radio" name="color" id="color-${c}" value="${c}" style="position:absolute;opacity:0;width:1px;height:1px"><label for="color-${c}" style="display:inline-block;padding:6px 12px;border:1px solid #999;border-radius:16px;margin:4px;cursor:pointer">${c}</label>`
+              `<label style="display:inline-block;padding:6px 12px;border:1px solid #999;margin:4px;cursor:pointer"><input type="radio" name="color" value="${c}" style="display:none">${c}</label>`
           )
           .join("")}</fieldset><input type="hidden" id="size" value="">`
-      : `${label}<select id="size" name="size"><option value="">Choose…</option><option>S</option><option>M</option><option>L</option></select>`;
+      : opts.swatches
+        ? `<fieldset><legend>Color</legend>${["Pine", "Slate", "Ember"]
+            .map(
+              c =>
+                `<input type="radio" name="color" id="color-${c}" value="${c}" style="position:absolute;opacity:0;width:1px;height:1px"><label for="color-${c}" style="display:inline-block;padding:6px 12px;border:1px solid #999;border-radius:16px;margin:4px;cursor:pointer">${c}</label>`
+            )
+            .join("")}</fieldset><input type="hidden" id="size" value="">`
+        : `${label}<select id="size" name="size"><option value="">Choose…</option><option>S</option><option>M</option><option>L</option></select>`;
     const add = opts.noAddToCart
       ? `<p>Available in stores.</p>`
       : `<button id="add" type="button" onclick='(function(){const SILENT=${opts.silentAdd ? "true" : "false"};${ADD_SCRIPT}})()'>Add to cart</button><p id="msg" role="status"></p>`;
-    return page(product.title, `<h1>${product.title}</h1><p class="price">$${product.price}.00</p>${size}${add}`);
+    const distractions = opts.distractions
+      ? `<div hidden><fieldset><legend>Size</legend><input type="radio" name="qa-size" value="S" disabled><input type="radio" name="qa-size" value="M" disabled></fieldset></div>
+         <form action="/newsletter"><p>Get our newsletter?</p><input type="radio" name="newsletter" value="yes" id="nl-yes"><label for="nl-yes">Yes</label><input type="radio" name="newsletter" value="no" id="nl-no"><label for="nl-no">No</label></form>`
+      : "";
+    return page(product.title, `<h1>${product.title}</h1><p class="price">$${product.price}.00</p>${size}${add}${distractions}`);
   }
   if (path === "/cart") {
     const popup = opts.popup

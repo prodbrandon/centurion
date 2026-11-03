@@ -231,11 +231,29 @@ export async function runCheckoutAgent(opts: CheckoutAgentOptions): Promise<Chec
       const n = await selects.count();
       const unlabeled: string[] = [];
       const chosen: string[] = [];
-      // Swatch pickers: radio groups, often with the input hidden behind a clickable label.
-      const groups = await page.locator('input[type="radio"]').evaluateAll((els: Element[]) => {
-        const byName = new Map<string, { name: string; legend: string; checked: boolean; options: { id: string; value: string }[] }>();
-        for (const el of els as HTMLInputElement[]) {
-          if (!el.name) continue;
+      // Swatch pickers: radio groups, often with the input hidden behind a clickable label. Only groups in the
+      // product form count (or in the page's main content outside any other form), and only groups with a visible
+      // option, so newsletter, shipping or hidden quick-add radios are never touched.
+      const radios = page.locator('input[type="radio"]');
+      const groups = await radios.evaluateAll((els: Element[]) => {
+        const addButton = [...document.querySelectorAll("button, input[type=submit]")].find(b =>
+          /add to (cart|bag|basket)/i.test((b as HTMLElement).innerText || (b as HTMLInputElement).value || "")
+        );
+        const productForm = addButton?.closest("form") ?? null;
+        const main = document.querySelector("main, [role=main]");
+        // No named helper functions in here: this runs in the page, where the bundler's name helper doesn't exist.
+        const byName = new Map<
+          string,
+          { name: string; legend: string; checked: boolean; visible: boolean; options: { index: number; value: string }[] }
+        >();
+        (els as HTMLInputElement[]).forEach((el, index) => {
+          const form = el.closest("form");
+          const inScope = productForm ? form === productForm : !form && !!main?.contains(el);
+          if (!el.name || !inScope) return;
+          const label: Element | null = el.closest("label") ?? (el.labels && el.labels[0]) ?? null;
+          const inputShown = el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden";
+          const labelShown = !!label && label.getClientRects().length > 0 && getComputedStyle(label).visibility !== "hidden";
+          const soldOut = el.disabled || /\b(disabled|sold-?out|unavailable)\b/i.test(`${el.className} ${label?.className ?? ""}`);
           const g = byName.get(el.name) ?? {
             name: el.name,
             legend:
@@ -243,13 +261,15 @@ export async function runCheckoutAgent(opts: CheckoutAgentOptions): Promise<Chec
               el.closest('[role="radiogroup"]')?.getAttribute("aria-label") ||
               "",
             checked: false,
+            visible: false,
             options: []
           };
           g.checked ||= el.checked;
-          if (!el.disabled) g.options.push({ id: el.id, value: el.value });
+          g.visible ||= inputShown || labelShown;
+          if (!soldOut) g.options.push({ index, value: el.value });
           byName.set(el.name, g);
-        }
-        return [...byName.values()];
+        });
+        return [...byName.values()].filter(g => g.visible);
       });
       for (const g of groups) {
         if (g.checked) {
@@ -258,9 +278,16 @@ export async function runCheckoutAgent(opts: CheckoutAgentOptions): Promise<Chec
         }
         const first = g.options[0];
         if (!first) throw new Blocked(`Every ${g.legend || g.name} option is unavailable.`, "Check the product has an option in stock.");
-        const label = first.id ? page.locator(`label[for="${first.id}"]`) : null;
-        if (label && (await label.count()) > 0 && (await label.first().isVisible())) await label.first().click();
-        else await page.locator(`input[type="radio"][name="${g.name}"][value="${first.value}"]`).check({ force: true });
+        const input = radios.nth(first.index);
+        if (await input.isVisible()) await input.check();
+        else {
+          // The input is hidden: click its label, whether it wraps the input or points at it with for=.
+          const wrapping = input.locator("xpath=ancestor::label[1]");
+          if ((await wrapping.count()) > 0 && (await wrapping.isVisible())) await wrapping.click();
+          else await input.evaluate((el: HTMLInputElement) => (el.labels?.[0] ?? el).click());
+        }
+        if (!(await input.isChecked()))
+          throw new Blocked(`The ${g.legend || g.name} option couldn't be selected.`, "Make each option a clickable, labeled control.");
         if (!g.legend) unlabeled.push(g.name);
         chosen.push(`${g.legend || g.name} ${first.value}`);
       }

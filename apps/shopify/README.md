@@ -11,7 +11,7 @@ All classification and storage goes through `@centurion/core` (`packages/core`),
 | AI Sales | `/app` | Live. **Run report** starts a background run that fetches the last 60 days of orders (retrying throttled pages), classifies them and stores the run in Postgres. The screen shows the run's progress and renders the result when it is done. |
 | Checkout Test | `/app/checkout-test` | The store's latest checkout agent run from `checkout_runs`, run with `packages/checkout-test`. Until the store is tested it shows the latest test-page run, labeled as such. |
 | Answer Check | `/app/answer-check` | Live with `META_API_KEY`: **Ask Meta Llama now** asks Llama about the store's products (AI best sellers first), compares each answer with the catalog by fixed rules and stores the run. Without a key it shows a fixture run on the Northpine demo catalog, labeled as sample answers. |
-| Weekly Fix | `/app/weekly-fix` | Chooses this store's fix from its stored AI Sales report, its latest live Answer Check and its catalog, by a fixed rule. Apply and undo use the Admin API (`productUpdate`) and record before/after and holdouts in `weekly_fixes`; they stay disabled until `CENTURION_STORE_WRITES=on` and `write_products` are set. With no fix for the store, it shows the rule's result on the demo store, labeled. |
+| Weekly Fix | `/app/weekly-fix` | Chooses this store's fix from its stored AI Sales report, its latest live Answer Check and its catalog, by a fixed rule. Apply and undo use the Admin API (`productUpdate`) and record before/after and holdouts in `weekly_fixes`; they stay disabled until `CENTURION_STORE_WRITES=on` is set and `write_products` is added to `scopes` in `shopify.app.toml` (then deploy the config and re-approve). With no fix for the store, it shows the rule's result on the demo store, labeled. |
 
 ## Webhooks
 
@@ -38,6 +38,7 @@ All classification and storage goes through `@centurion/core` (`packages/core`),
      npx prisma db execute --file prisma/migrations/20261103000000_create_session_table/migration.sql --schema prisma/schema.prisma
      npx prisma migrate resolve --applied 20261103000000_create_session_table
      ```
+   Then apply any files in `../../supabase/migrations/` not yet applied, in filename order: `20261103010000_answer_checks.sql`, `20261103020000_report_run_heartbeat.sql`, `20261103030000_checkout_runs.sql` and `20261103040000_weekly_fixes.sql`.
    After that, `prisma migrate deploy` (run by `shopify app dev` and on container start) only applies new session migrations.
 3. Install Shopify CLI 5.0 or newer globally (`npm install -g @shopify/cli@latest`). Then link your own app and development store:
    ```bash

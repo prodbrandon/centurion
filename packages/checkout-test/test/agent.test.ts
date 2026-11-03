@@ -170,6 +170,22 @@ test("swatch pickers with hidden radio inputs are chosen through their labels", 
   assert.ok(hits.includes("POST /cart/add.js"));
 });
 
+test("swatches whose label wraps a hidden input are chosen", async () => {
+  const { result } = await run({ wrappedSwatches: true });
+  const choose = result.steps.find(s => s.title === "Choose options")!;
+  assert.equal(choose.status, "passed", choose.detail);
+  assert.match(choose.detail, /Chose Color Pine/);
+  assert.equal(result.result, "reached_checkout");
+});
+
+test("hidden or unrelated radios (sold-out quick-add, newsletter) are left alone", async () => {
+  const { result } = await run({ distractions: true });
+  const choose = result.steps.find(s => s.title === "Choose options")!;
+  assert.equal(choose.status, "passed", choose.detail);
+  assert.doesNotMatch(choose.detail, /newsletter|qa-size|unavailable/);
+  assert.equal(result.result, "reached_checkout");
+});
+
 test("an unreachable store fails at the first step", async () => {
   const store = await startTestStore();
   const url = store.url;
