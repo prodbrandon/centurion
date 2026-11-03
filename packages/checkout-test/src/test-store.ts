@@ -15,6 +15,14 @@ export interface TestStoreOptions {
   noSearch?: boolean;
   /** The cart's checkout button posts straight to /pay (a broken or hostile store). */
   checkoutPosts?: boolean;
+  /** The cart's checkout link is a GET to /pay?confirm=1. */
+  checkoutGetsPay?: boolean;
+  /** The cart's checkout button is a form that posts to /checkout. */
+  checkoutFormPost?: boolean;
+  /** The checkout page sends POST /orders/create and POST /api/graphql while it loads. */
+  checkoutPagePosts?: boolean;
+  /** Add to cart shows no message and doesn't update the cart count. */
+  silentAdd?: boolean;
 }
 
 export interface TestStore {
@@ -52,11 +60,23 @@ const ADD_SCRIPT = `
   const size = document.getElementById("size");
   const msg = document.getElementById("msg");
   if (!size.value) { msg.textContent = "Choose a size first."; return; }
-  localStorage.setItem("cart", String(Number(localStorage.getItem("cart") || 0) + 1));
-  document.getElementById("count").textContent = localStorage.getItem("cart");
-  msg.textContent = "Added to cart.";`;
+  fetch("/cart/add.js?return_to=/discard", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: 1, quantity: 1 }) })
+    .then(r => r.json())
+    .then(cart => {
+      localStorage.setItem("cart", String(cart.item_count));
+      if (SILENT) return;
+      document.getElementById("count").textContent = localStorage.getItem("cart");
+      msg.textContent = "Added to cart.";
+    });`;
 
 const CLOSE_POPUP = `document.getElementById("popup").style.display = "none";`;
+
+function checkoutButton(opts: TestStoreOptions): string {
+  if (opts.checkoutPosts) return `<form method="post" action="/pay"><button type="submit" id="checkout">Check out</button></form>`;
+  if (opts.checkoutFormPost) return `<form method="post" action="/checkout"><button type="submit" id="checkout">Check out</button></form>`;
+  if (opts.checkoutGetsPay) return `<a class="button" href="/pay?confirm=1" id="checkout">Check out</a>`;
+  return `<a class="button" href="/checkout" id="checkout">Check out</a>`;
+}
 
 function render(path: string, query: URLSearchParams, opts: TestStoreOptions): string | null {
   if (path === "/") {
@@ -79,7 +99,7 @@ function render(path: string, query: URLSearchParams, opts: TestStoreOptions): s
     const size = `${label}<select id="size" name="size"><option value="">Choose…</option><option>S</option><option>M</option><option>L</option></select>`;
     const add = opts.noAddToCart
       ? `<p>Available in stores.</p>`
-      : `<button id="add" type="button" onclick='(function(){${ADD_SCRIPT}})()'>Add to cart</button><p id="msg" role="status"></p>`;
+      : `<button id="add" type="button" onclick='(function(){const SILENT=${opts.silentAdd ? "true" : "false"};${ADD_SCRIPT}})()'>Add to cart</button><p id="msg" role="status"></p>`;
     return page(product.title, `<h1>${product.title}</h1><p class="price">$${product.price}.00</p>${size}${add}`);
   }
   if (path === "/cart") {
@@ -88,7 +108,7 @@ function render(path: string, query: URLSearchParams, opts: TestStoreOptions): s
       : "";
     return page(
       "Cart",
-      `<h1>Your cart</h1><p id="lines"></p>${opts.checkoutPosts ? `<form method="post" action="/pay"><button type="submit" id="checkout">Check out</button></form>` : `<a class="button" href="/checkout" id="checkout">Check out</a>`}${popup}
+      `<h1>Your cart</h1><p id="lines"></p>${checkoutButton(opts)}${popup}
        <script>document.getElementById("lines").textContent = (localStorage.getItem("cart") || 0) + " item(s)";</script>`
     );
   }
@@ -99,7 +119,11 @@ function render(path: string, query: URLSearchParams, opts: TestStoreOptions): s
         <label for="email">Email</label><input id="email" name="email" type="email">
         <label for="card">Card number</label><input id="card" name="card" autocomplete="cc-number">
         <label for="cvc">CVC</label><input id="cvc" name="cvc" autocomplete="cc-csc">
-        <button type="submit" id="pay">Pay now</button></form>`
+        <button type="submit" id="pay">Pay now</button></form>${
+          opts.checkoutPagePosts
+            ? `<script>fetch("/orders/create", { method: "POST" }).catch(() => {}); fetch("/api/graphql", { method: "POST", body: "{}" }).catch(() => {});</script>`
+            : ""
+        }`
     );
   }
   return null;
@@ -107,14 +131,20 @@ function render(path: string, query: URLSearchParams, opts: TestStoreOptions): s
 
 export async function startTestStore(opts: TestStoreOptions = {}): Promise<TestStore> {
   const hits: string[] = [];
+  let cartCount = 0;
   const server: Server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     hits.push(`${req.method} ${url.pathname}`);
+    if (url.pathname === "/cart/add.js" && req.method === "POST") {
+      cartCount++;
+      res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ item_count: cartCount }));
+      return;
+    }
     if (url.pathname === "/pay") {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" }).end(page("Paid", "<h1>Payment submitted</h1>"));
       return;
     }
-    const html = render(url.pathname, url.searchParams, opts);
+    const html = req.method === "GET" ? render(url.pathname, url.searchParams, opts) : null;
     res.writeHead(html ? 200 : 404, { "Content-Type": "text/html; charset=utf-8" }).end(html ?? page("Not found", "<h1>Not found</h1>"));
   });
   await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));

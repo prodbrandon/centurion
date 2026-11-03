@@ -192,15 +192,18 @@ export type CheckoutTestState = {
   source: "shop" | "test_page_db" | "test_page_sample";
 };
 
+/** Only the video's file name goes to the browser, never a path on the machine that ran the worker. */
+const forBrowser = (run: CheckoutRunResult): CheckoutRunResult => ({ ...run, videoPath: run.videoPath ? (run.videoPath.split(/[\\/]/).pop() ?? null) : null });
+
 /** The shop's latest checkout run, else the latest test-page run, else the committed test-page run. */
 export async function checkoutTestState(shop: string): Promise<CheckoutTestState> {
   const db = getDb();
   if (db) {
     try {
       const own = await loadLatestCheckoutRun(db, shop);
-      if (own) return { run: own, source: "shop" };
+      if (own) return { run: forBrowser(own), source: "shop" };
       const testPage = await loadLatestCheckoutRun(db, null);
-      if (testPage) return { run: testPage, source: "test_page_db" };
+      if (testPage) return { run: forBrowser(testPage), source: "test_page_db" };
     } catch (error) {
       console.error("Loading checkout runs failed", error);
     }

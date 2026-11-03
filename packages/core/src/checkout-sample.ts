@@ -4,10 +4,10 @@
 import type { CheckoutRunResult } from "./checkout-types.ts";
 
 export const TEST_PAGE_CHECKOUT_RUN: CheckoutRunResult = {
-  "startedAt": "2026-11-03T18:31:49.592Z",
-  "finishedAt": "2026-11-03T18:31:52.081Z",
+  "startedAt": "2026-11-03T19:00:18.715Z",
+  "finishedAt": "2026-11-03T19:00:22.568Z",
   "target": {
-    "url": "http://127.0.0.1:37409",
+    "url": "http://127.0.0.1:43989",
     "kind": "test_page"
   },
   "agent": "Scripted shopping agent (Playwright, Chromium), no model",
@@ -20,25 +20,25 @@ export const TEST_PAGE_CHECKOUT_RUN: CheckoutRunResult = {
       "n": 1,
       "title": "Open the store",
       "status": "passed",
-      "detail": "Home page loaded in 0.0 s.",
-      "ms": 23,
-      "url": "http://127.0.0.1:37409/"
+      "detail": "Home page loaded in 0.1 s.",
+      "ms": 102,
+      "url": "http://127.0.0.1:43989/"
     },
     {
       "n": 2,
       "title": "Search for “trail jacket”",
       "status": "passed",
       "detail": "Trail Jacket was the first result.",
-      "ms": 100,
-      "url": "http://127.0.0.1:37409/search?q=trail+jacket"
+      "ms": 382,
+      "url": "http://127.0.0.1:43989/search?q=trail+jacket"
     },
     {
       "n": 3,
       "title": "Open the product page",
       "status": "passed",
       "detail": "Trail Jacket opened. Price $229.00 was readable.",
-      "ms": 63,
-      "url": "http://127.0.0.1:37409/products/trail-jacket"
+      "ms": 177,
+      "url": "http://127.0.0.1:43989/products/trail-jacket"
     },
     {
       "n": 4,
@@ -46,16 +46,16 @@ export const TEST_PAGE_CHECKOUT_RUN: CheckoutRunResult = {
       "status": "slowed",
       "detail": "Chose size M. The size picker has no visible label, so the agent had to guess what it was.",
       "hint": "Add a visible label to the size picker.",
-      "ms": 32,
-      "url": "http://127.0.0.1:37409/products/trail-jacket"
+      "ms": 63,
+      "url": "http://127.0.0.1:43989/products/trail-jacket"
     },
     {
       "n": 5,
       "title": "Add to cart",
       "status": "passed",
       "detail": "Clicked “Add to cart”. The store said “Added to cart”.",
-      "ms": 472,
-      "url": "http://127.0.0.1:37409/products/trail-jacket"
+      "ms": 521,
+      "url": "http://127.0.0.1:43989/products/trail-jacket"
     },
     {
       "n": 6,
@@ -63,16 +63,16 @@ export const TEST_PAGE_CHECKOUT_RUN: CheckoutRunResult = {
       "status": "slowed",
       "detail": "A popup covered the checkout button. The agent found its close button. Many agents give up here.",
       "hint": "Don’t show popups on cart and checkout pages.",
-      "ms": 1626,
-      "url": "http://127.0.0.1:37409/cart"
+      "ms": 1756,
+      "url": "http://127.0.0.1:43989/cart"
     },
     {
       "n": 7,
       "title": "Reach checkout",
       "status": "passed",
-      "detail": "Checkout page loaded. The agent stopped before payment, as it always does.",
-      "ms": 48,
-      "url": "http://127.0.0.1:37409/checkout"
+      "detail": "Checkout page opened. The agent stopped before payment, as it always does.",
+      "ms": 570,
+      "url": "http://127.0.0.1:43989/checkout"
     }
   ],
   "videoPath": null,

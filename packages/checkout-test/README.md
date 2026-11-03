@@ -2,7 +2,7 @@
 
 Agent Checkout Test. A shopping agent opens a storefront in Chromium, finds a product, chooses its options, adds it to the cart and goes to checkout, then stops. It records a video and a step log, and marks each step passed, slowed (it got through, with trouble) or blocked (it stopped there), with a fix for the store.
 
-**It never pays.** It never types into payment fields, it stops as soon as checkout loads, and a request guard aborts any non-GET request to a payment-like URL, and every non-GET request once checkout is reached, whatever the page's buttons do. A test proves the guard holds against a store whose checkout button posts straight to `/pay`.
+**It never pays.** It never types into payment fields and it stops as soon as checkout opens. A request guard aborts any request, GET included, to a payment-like path (`/pay`, `/payments/…`, `/checkouts/…/processing` and similar, matched on whole path segments, never on the host or query). From the moment the agent clicks the checkout button it also aborts every write except the plain cart endpoints (`/cart`, `/cart/add`, `/cart/change`, `/cart/update`) that Shopify themes use to open checkout, so nothing a checkout page sends while loading gets through. Tests prove it against stores whose checkout button posts to `/pay`, links to `GET /pay`, posts a form to `/checkout`, or whose checkout page fires order requests while loading.
 
 The v0 agent is scripted (Playwright locators by role and text), with no model.
 
@@ -30,7 +30,7 @@ npm run test-page -- --write-sample ../core/src/checkout-sample.ts --no-video
 | File | What it does |
 | --- | --- |
 | `src/agent.ts` | The worker: steps, payment guard, video |
-| `src/test-store.ts` | Local practice store with switchable flaws (popup, unlabeled size picker, no search, no add-to-cart, checkout button that posts to `/pay`) |
+| `src/test-store.ts` | Local practice store with switchable flaws (popup, unlabeled size picker, no search, no add-to-cart, silent add-to-cart, and hostile checkout buttons and pages) |
 | `src/cli.ts` | Command line runner |
 
 ## Known limits

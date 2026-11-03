@@ -15,7 +15,9 @@ import { startTestStore } from "./test-store.ts";
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
-  return i === -1 ? undefined : process.argv[i + 1];
+  const value = i === -1 ? undefined : process.argv[i + 1];
+  if (i !== -1 && (value === undefined || value.startsWith("--"))) throw new Error(`--${name} needs a value.`);
+  return value;
 }
 const flag = (name: string) => process.argv.includes(`--${name}`);
 
@@ -26,7 +28,9 @@ function print(run: CheckoutRunResult) {
   for (const s of run.steps) {
     console.log(`${MARK[s.status]} ${s.n}. ${s.title} (${(s.ms / 1000).toFixed(1)} s): ${s.detail}${s.hint ? `\n     Fix: ${s.hint}` : ""}`);
   }
-  console.log(run.result === "reached_checkout" ? `Reached checkout, stopped before payment. ${run.problems} problem(s).` : `Blocked at step ${run.failedStep}.`);
+  console.log(
+    run.result === "reached_checkout" ? `Reached checkout, stopped before payment. ${run.problems} problem(s).` : `Blocked at step ${run.failedStep}.`
+  );
   if (run.blockedRequests.length) console.log(`Payment guard stopped: ${run.blockedRequests.join(", ")}`);
   if (run.videoPath) console.log(`Video: ${run.videoPath}`);
 }

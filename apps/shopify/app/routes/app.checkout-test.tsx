@@ -35,8 +35,8 @@ export default function CheckoutTest() {
       ) : (
         <s-banner tone="warning" heading="Test-page run, not your store">
           <s-paragraph>
-            This is a real run of the checkout agent on Centurion’s local test page, a small practice store with a discount popup and
-            an unlabeled size picker switched on. Your own storefront hasn’t been tested yet: run{" "}
+            This is a real run of the checkout agent on Centurion’s local test page, a small practice store, not on your shop. Your
+            own storefront hasn’t been tested yet: run{" "}
             <s-text type="strong">npm run check -- --url your-store-url --shop your-shop.myshopify.com</s-text> in
             packages/checkout-test.
           </s-paragraph>
@@ -45,14 +45,18 @@ export default function CheckoutTest() {
 
       <s-section heading={`${run.problems} ${run.problems === 1 ? "problem" : "problems"} · ${shortDate(run.startedAt)}`}>
         <s-stack gap="small-200">
-          <s-paragraph>An AI shopping agent tried to buy from {run.target.kind === "test_page" ? "the test page" : "your store"}. {outcome}</s-paragraph>
+          <s-paragraph>
+            A scripted shopping agent tried to buy from {run.target.kind === "test_page" ? "the test page" : "your store"}. {outcome}
+          </s-paragraph>
           <s-text color="subdued">
             Agent: {run.agent}. Run time {seconds(total)}.
             {run.query ? ` Shopper looked for “${run.query}”.` : ""}
             {run.blockedRequests.length ? ` Payment requests stopped: ${run.blockedRequests.join(", ")}.` : ""}
           </s-text>
           <s-text color="subdued">
-            {run.videoPath ? `Video saved by the worker at ${run.videoPath}.` : "The worker saves a video of each run where it runs; videos aren’t uploaded."}
+            {run.videoPath
+              ? `Video saved by the worker as ${run.videoPath}, on the machine that ran it.`
+              : "The worker saves a video of each run where it runs; videos aren’t uploaded."}
           </s-text>
         </s-stack>
       </s-section>

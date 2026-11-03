@@ -1,17 +1,23 @@
 // The checkout agent against the local test store, in real headless Chromium.
 import { strict as assert } from "node:assert";
-import { mkdtemp, readdir, stat } from "node:fs/promises";
+import { mkdtemp, readdir, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { runCheckoutAgent } from "../src/agent.ts";
+import { guardBlocks, runCheckoutAgent } from "../src/agent.ts";
 import { startTestStore, type TestStoreOptions } from "../src/test-store.ts";
 
 async function run(opts: TestStoreOptions, extra: { query?: string; video?: boolean } = {}) {
   const store = await startTestStore(opts);
   const videoDir = extra.video ? await mkdtemp(join(tmpdir(), "checkout-video-")) : null;
   try {
-    const result = await runCheckoutAgent({ url: store.url, kind: "test_page", query: extra.query ?? "trail jacket", videoDir, actionTimeoutMs: 4000 });
+    const result = await runCheckoutAgent({
+      url: store.url,
+      kind: "test_page",
+      query: extra.query ?? "trail jacket",
+      videoDir,
+      actionTimeoutMs: 4000
+    });
     return { result, hits: [...store.hits], videoDir };
   } finally {
     await store.close();
@@ -72,7 +78,7 @@ test("the worker never submits payment, even when the checkout button posts to /
   const { result, hits } = await run({ checkoutPosts: true });
   assert.equal(result.result, "blocked");
   assert.equal(result.steps.at(-1)!.title, "Reach checkout");
-  assert.match(result.steps.at(-1)!.detail, /tried to submit a payment request \(POST \/pay\)/);
+  assert.match(result.steps.at(-1)!.detail, /tried to send POST \/pay/);
   assert.deepEqual(result.blockedRequests, ["POST /pay"]);
   assert.ok(!hits.some(h => h === "POST /pay"), `the store never received a payment request: ${hits.join(", ")}`);
 });
@@ -80,8 +86,79 @@ test("the worker never submits payment, even when the checkout button posts to /
 test("on a clean run the agent stops at checkout and never touches the payment form", async () => {
   const { result, hits } = await run({});
   assert.equal(result.steps.at(-1)!.title, "Reach checkout");
-  assert.equal(hits.filter(h => h.startsWith("POST")).length, 0);
+  assert.deepEqual(
+    hits.filter(h => h.startsWith("POST")),
+    ["POST /cart/add.js"],
+    "the only write is adding to the cart"
+  );
   assert.deepEqual(result.blockedRequests, []);
+});
+
+test("a checkout link that GETs /pay is stopped and blamed correctly", async () => {
+  const { result, hits } = await run({ checkoutGetsPay: true });
+  assert.equal(result.result, "blocked");
+  assert.match(result.steps.at(-1)!.detail, /tried to send GET \/pay/);
+  assert.deepEqual(result.blockedRequests, ["GET /pay"]);
+  assert.ok(!hits.some(h => h.includes("/pay")), hits.join(", "));
+});
+
+test("a checkout button that posts a form is stopped: from the checkout click on, only page loads and cart writes go through", async () => {
+  const { result, hits } = await run({ checkoutFormPost: true });
+  assert.equal(result.result, "blocked");
+  assert.match(result.steps.at(-1)!.detail, /tried to send POST \/checkout/);
+  assert.ok(!hits.includes("POST /checkout"), hits.join(", "));
+});
+
+test("writes the checkout page sends while loading are stopped, and the run still reaches checkout", async () => {
+  const { result, hits } = await run({ checkoutPagePosts: true });
+  assert.equal(result.result, "reached_checkout");
+  assert.deepEqual([...result.blockedRequests].sort(), ["POST /api/graphql", "POST /orders/create"]);
+  assert.match(result.steps.at(-1)!.detail, /payment guard stopped 2 requests/);
+  assert.ok(!hits.some(h => h.startsWith("POST /orders") || h.startsWith("POST /api")), hits.join(", "));
+});
+
+test("a normal add-to-cart request is never mistaken for a payment", async () => {
+  const { result, hits } = await run({});
+  assert.ok(hits.includes("POST /cart/add.js"), "the add-to-cart request (with ?return_to=/discard) reached the store");
+  assert.deepEqual(result.blockedRequests, []);
+});
+
+test("an add to cart with no visible confirmation is slowed, not passed", async () => {
+  const { result } = await run({ silentAdd: true });
+  const add = result.steps.find(s => s.title === "Add to cart")!;
+  // The store still answered the cart request, which the agent counts as accepted.
+  assert.equal(add.status, "passed");
+  assert.match(add.detail, /The cart accepted the item/);
+});
+
+test("the guard matches payment paths only, never hosts, queries or product names", () => {
+  for (const [method, url, armed, blocked] of [
+    ["GET", "https://s.example/pay?confirm=1", false, true],
+    ["POST", "https://s.example/payments/session", false, true],
+    ["POST", "https://s.example/checkouts/cn/abc/processing", false, true],
+    ["POST", "https://s.example/cart/add.js?return_to=/discard", false, false],
+    ["POST", "https://paylessshoes.example/cart/add", false, false],
+    ["GET", "https://s.example/products/gift-card", false, false],
+    ["GET", "https://s.example/collections/cardigans", false, false],
+    ["POST", "https://s.example/cart", true, false],
+    ["POST", "https://s.example/checkout", true, true],
+    ["POST", "https://s.example/api/graphql", true, true],
+    ["GET", "https://s.example/checkouts/cn/abc", true, false]
+  ] as const) {
+    assert.equal(guardBlocks(method, url, armed), blocked, `${method} ${url} armed=${armed}`);
+  }
+});
+
+test("a video folder that can't be created fails fast instead of hanging", async () => {
+  const store = await startTestStore();
+  try {
+    const dir = await mkdtemp(join(tmpdir(), "checkout-video-"));
+    const file = join(dir, "not-a-folder");
+    await writeFile(file, "");
+    await assert.rejects(runCheckoutAgent({ url: store.url, kind: "test_page", videoDir: join(file, "videos") }), /ENOTDIR|EEXIST/);
+  } finally {
+    await store.close();
+  }
 });
 
 test("an unreachable store fails at the first step", async () => {

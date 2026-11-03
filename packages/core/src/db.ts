@@ -401,7 +401,15 @@ export async function loadLatestAnswerCheck(db: Queryable, shopDomain: string): 
 /** Stores a checkout test run in the failure corpus. `shop` is null for runs on the local test page. */
 export async function saveCheckoutRun(db: Queryable, input: { shop: ShopInfo | null; run: CheckoutRunResult }): Promise<string> {
   const { run } = input;
-  const shopId = input.shop ? await upsertShop(db, input.shop) : null;
+  // Look the shop up (or add it) without touching its install state: a test run never re-installs a shop.
+  let shopId: string | null = null;
+  if (input.shop) {
+    const [row] = await db.query<{ id: string }>(
+      `insert into shops (shop_domain, name) values ($1, $2) on conflict (shop_domain) do update set shop_domain = excluded.shop_domain returning id`,
+      [input.shop.domain, input.shop.name ?? null]
+    );
+    shopId = row!.id;
+  }
   const failed = run.failedStep ? run.steps.find(s => s.n === run.failedStep) : undefined;
   const [row] = await db.query<{ id: string }>(
     `insert into checkout_runs (shop_id, target_url, target_kind, agent, result, failed_step, failure_kind, problems, steps, video_path, result_json, started_at, finished_at)

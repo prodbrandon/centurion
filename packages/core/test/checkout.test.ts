@@ -38,6 +38,15 @@ const blockedRun = (at: string, step: string): CheckoutRunResult => ({
   ]
 });
 
+test("saving a run for an uninstalled shop does not re-install it", async () => {
+  const db = await freshDb();
+  await db.query(`insert into shops (shop_domain, uninstalled_at) values ('gone.myshopify.com', now())`);
+  await saveCheckoutRun(db, { shop: { domain: "gone.myshopify.com" }, run: blockedRun("2026-11-02T00:00:00.000Z", "Add to cart") });
+  const [row] = await db.query<{ uninstalled_at: unknown }>(`select uninstalled_at from shops where shop_domain = 'gone.myshopify.com'`);
+  assert.ok(row!.uninstalled_at, "still uninstalled");
+  assert.equal(await loadLatestCheckoutRun(db, "gone.myshopify.com"), null, "and its runs stay hidden");
+});
+
 test("the committed sample is a test-page run that reached checkout without a payment request", () => {
   assert.equal(TEST_PAGE_CHECKOUT_RUN.target.kind, "test_page");
   assert.equal(TEST_PAGE_CHECKOUT_RUN.result, "reached_checkout");

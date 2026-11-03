@@ -25,7 +25,7 @@ export default function CheckoutTestPage() {
         <p className="hero-number">
           {run.problems} {run.problems === 1 ? "problem" : "problems"}
         </p>
-        <p>An AI shopping agent tried to buy from the test store. {outcome}</p>
+        <p>A scripted shopping agent tried to buy from the test store. {outcome}</p>
       </section>
 
       <span className="preview">
