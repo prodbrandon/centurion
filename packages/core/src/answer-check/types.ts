@@ -16,7 +16,8 @@ export interface CatalogFact {
 export interface CatalogProduct {
   id: string;
   title: string;
-  price?: { amount: number; currency: string; source: CatalogSource };
+  /** amount is the lowest option price; max the highest when options differ. */
+  price?: { amount: number; max?: number; currency: string; source: CatalogSource };
   /** Undefined when the store does not track stock for this product. */
   stock?: { inStock: boolean; source: CatalogSource };
   facts: CatalogFact[];

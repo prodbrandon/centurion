@@ -39,7 +39,10 @@ function dbErrorMessage(error: unknown): string {
     return "The database rejected the password in DATABASE_URL. Check it is the real database password (not [YOUR-PASSWORD]), URL-encoded if it has symbols like @ : / # %.";
   }
   if (/tenant or user not found/i.test(message)) return "The database user in DATABASE_URL is wrong. For the pooler it looks like postgres.<project-ref>.";
-  if (/relation .* does not exist/i.test(message)) return "The database is reachable but the tables are missing. Run supabase/migrations/20261026000000_init.sql in the Supabase SQL editor.";
+  if (/relation .* does not exist/i.test(message)) {
+    const table = message.match(/relation "?([\w.]+)"? does not exist/i)?.[1];
+    return `The database is reachable but ${table ? `the ${table} table is` : "tables are"} missing. Apply every file in supabase/migrations/ in filename order (Supabase SQL editor).`;
+  }
   if (/ENOTFOUND|ECONNREFUSED|ETIMEDOUT|timeout/i.test(message)) return "Could not reach the database host in DATABASE_URL.";
   return `Database error: ${message}`;
 }

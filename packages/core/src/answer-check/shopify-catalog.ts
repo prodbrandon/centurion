@@ -14,7 +14,8 @@ export const CATALOG_QUERY = `#graphql
         updatedAt
         tracksInventory
         totalInventory
-        priceRangeV2 { minVariantPrice { amount currencyCode } }
+        priceRangeV2 { minVariantPrice { amount currencyCode } maxVariantPrice { amount currencyCode } }
+        variants(first: 50) { nodes { inventoryPolicy } }
         prohibited: metafield(namespace: "centurion", key: "prohibited_claims") { value }
         approved: metafield(namespace: "centurion", key: "approved_claims") { value }
       }
@@ -27,7 +28,8 @@ interface ProductNode {
   updatedAt: string;
   tracksInventory: boolean;
   totalInventory: number | null;
-  priceRangeV2?: { minVariantPrice?: { amount: string; currencyCode: string } };
+  priceRangeV2?: { minVariantPrice?: { amount: string; currencyCode: string }; maxVariantPrice?: { amount: string; currencyCode: string } };
+  variants?: { nodes: { inventoryPolicy: string }[] };
   prohibited?: { value: string } | null;
   approved?: { value: string } | null;
 }
@@ -47,11 +49,16 @@ export function parseClaims(value: string | undefined | null): string[] {
 export function productFromNode(n: ProductNode): CatalogProduct {
   const updated = n.updatedAt?.slice(0, 10);
   const price = n.priceRangeV2?.minVariantPrice;
+  const max = n.priceRangeV2?.maxVariantPrice;
+  // A variant set to keep selling when out of stock ("continue selling") can always be ordered, so stock is not judged.
+  const sellsWhenOut = (n.variants?.nodes ?? []).some(v => v.inventoryPolicy === "CONTINUE");
   return {
     id: n.id,
     title: n.title,
-    price: price ? { amount: Number(price.amount), currency: price.currencyCode, source: { system: "shopify", ref: "product price", updated } } : undefined,
-    stock: n.tracksInventory && n.totalInventory !== null ? { inStock: n.totalInventory > 0, source: { system: "shopify", ref: "inventory", updated } } : undefined,
+    price: price
+      ? { amount: Number(price.amount), max: max ? Number(max.amount) : undefined, currency: price.currencyCode, source: { system: "shopify", ref: "product price", updated } }
+      : undefined,
+    stock: n.tracksInventory && n.totalInventory !== null && !sellsWhenOut ? { inStock: n.totalInventory > 0, source: { system: "shopify", ref: "inventory", updated } } : undefined,
     facts: [],
     approvedClaims: parseClaims(n.approved?.value),
     prohibitedClaims: parseClaims(n.prohibited?.value)

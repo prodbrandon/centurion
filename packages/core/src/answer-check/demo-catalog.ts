@@ -28,7 +28,7 @@ export const DEMO_NORTHPINE_CATALOG: Catalog = {
       stock: { inStock: true, source: { system: "shopify", ref: "inventory", updated: "2026-10-23" } },
       facts: [
         { attribute: "volume", value: "45 liters", source: { system: "shopify", ref: "metafield specs.volume", updated: "2026-05-10" } },
-        { attribute: "torso_fit", value: "Adjustable torso 16 to 21 in", source: { system: "shopify", ref: "metafield specs.torso", updated: "2026-05-10" } },
+        { attribute: "torso_fit", value: "Adjustable torso 16 to 21 inches", source: { system: "shopify", ref: "metafield specs.torso", updated: "2026-05-10" } },
         { attribute: "weight", value: "1.3 kg", source: { system: "shopify", ref: "metafield specs.weight", updated: "2026-05-10" } }
       ],
       approvedClaims: ["adjustable torso", "45 liters", "carry-on compatible"],

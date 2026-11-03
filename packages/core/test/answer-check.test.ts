@@ -100,7 +100,7 @@ test("an 'I don't know' answer is reported as no answer, not as a match", () => 
 });
 
 test("quantity extraction normalizes units and reads ranges", () => {
-  const qs = extractQuantities("Weighs 0.9 kg, holds 45L, fits 16 to 21 in, 2-year warranty, -12 °C, $189, 200gsm, 800-fill");
+  const qs = extractQuantities("Weighs 0.9 kg, holds 45L, fits 16 to 21 inches, 2-year warranty, -12 °C, $189, 200gsm, 800-fill, 12 in stock, 2 in 1");
   const by = (d: string) => qs.filter(x => x.dimension === d).map(x => Math.round(x.value * 10) / 10);
   assert.deepEqual(by("mass"), [900]);
   assert.deepEqual(by("volume"), [45]);
@@ -108,6 +108,50 @@ test("quantity extraction normalizes units and reads ranges", () => {
   assert.deepEqual(by("duration"), [730]);
   assert.deepEqual(by("temperature"), [-12]);
   assert.deepEqual(by("money"), [189]);
+});
+
+// Regressions found in review: each case below was a wrong verdict before.
+test("restock talk is not a stock claim", () => {
+  for (const a of ["It's sold out right now, but it should be back in stock next week.", "Once it's in stock again it ships in a day."]) {
+    assert.equal(compareAnswer(a, q("NP-CM2:stock"), CATALOG).status, "consistent", a);
+  }
+});
+
+test("counts are not lengths", () => {
+  assert.equal(compareAnswer("Yes, there are 12 in stock.", q("NP-RB45:stock"), CATALOG).status, "consistent");
+  assert.deepEqual(extractQuantities("a 2 in 1 design"), []);
+});
+
+test("numbers are judged only against the fact their clause talks about", () => {
+  for (const [id, a] of [
+    ["NP-RB45:weight", "It weighs 1.3 kg and comfortably carries loads up to 15 kg."],
+    ["NP-TH2:comfort_rating", "Comfortable to -12 C layered; machine wash at 30 C."],
+    ["policy:returns", "Returns are accepted within 60 days; refunds post in 5-7 business days."],
+    ["NP-TH2:weight", "It weighs 410 grams, roughly 1 lb."]
+  ] as const) {
+    const r = compareAnswer(a, q(id), CATALOG);
+    assert.equal(r.status, "consistent", `${a} -> ${JSON.stringify(r.issues)}`);
+  }
+  // Still caught when the clause is about the fact.
+  assert.equal(compareAnswer("It carries loads well and weighs just 0.9 kg.", q("NP-RB45:weight"), CATALOG).issues[0]!.kind, "wrong_fact");
+});
+
+test("a negator further back does not cancel a banned claim", () => {
+  for (const a of ["It isn't just water-resistant but waterproof.", "There's no question it's waterproof.", "No leaks and fully waterproof."]) {
+    const r = compareAnswer(a, q("NP-TH2:water_resistance"), CATALOG);
+    assert.equal(r.issues[0]?.kind, "banned_claim", a);
+  }
+  assert.equal(compareAnswer("It is not 100% waterproof.", q("NP-TH2:water_resistance"), CATALOG).status, "consistent");
+});
+
+test("any option's price is right, and other currencies are shown as such", () => {
+  const catalog = {
+    ...CATALOG,
+    products: [{ ...CATALOG.products[0]!, price: { amount: 199, max: 249, currency: "CAD", source: { system: "shopify", ref: "product price" } } }]
+  };
+  assert.equal(compareAnswer("The large size is 249 dollars.", q("NP-TH2:price"), catalog).status, "consistent");
+  const wrong = compareAnswer("It costs $150.", q("NP-TH2:price"), catalog);
+  assert.equal(wrong.issues[0]!.truth, "199 CAD to 249 CAD, depending on the option");
 });
 
 test("the comparison uses no model: compare.ts has no network or provider imports", () => {
@@ -240,7 +284,7 @@ test("questions are deterministic and ask about products before policies", () =>
 // ---------------------------------------------------------------------------------------------
 
 test("a Shopify catalog puts best sellers first and reads banned claims from metafields", async () => {
-  const node = (id: string, title: string, inv: number, prohibited?: string) => ({
+  const node = (id: string, title: string, inv: number, prohibited?: string, policy = "DENY") => ({
     id,
     title,
     updatedAt: "2026-11-01T00:00:00Z",
@@ -248,17 +292,19 @@ test("a Shopify catalog puts best sellers first and reads banned claims from met
     totalInventory: inv,
     priceRangeV2: { minVariantPrice: { amount: "49.0", currencyCode: "USD" } },
     prohibited: prohibited ? { value: prohibited } : null,
-    approved: null
+    approved: null,
+    variants: { nodes: [{ inventoryPolicy: policy }] }
   });
   const run = async () => ({
     data: {
       shop: { name: "Dev Store", myshopifyDomain: "dev.myshopify.com" },
-      products: { nodes: [node("gid://1", "Mug", 3), node("gid://2", "Snowboard", 0, '["waterproof","unbreakable"]')] }
+      products: { nodes: [node("gid://1", "Mug", 3), node("gid://2", "Snowboard", 0, '["waterproof","unbreakable"]'), node("gid://3", "Preorder Hat", 0, undefined, "CONTINUE")] }
     }
   });
   const catalog = await fetchShopCatalog(run, { bestSellers: ["Snowboard"] });
   assert.equal(catalog.demo, false);
-  assert.deepEqual(catalog.products.map(p => p.title), ["Snowboard", "Mug"]);
+  assert.deepEqual(catalog.products.map(p => p.title), ["Snowboard", "Mug", "Preorder Hat"]);
+  assert.equal(catalog.products[2]!.stock, undefined, "continue-selling products are not judged on stock");
   assert.deepEqual(catalog.products[0]!.prohibitedClaims, ["waterproof", "unbreakable"]);
   assert.equal(catalog.products[0]!.stock!.inStock, false);
   assert.equal(catalog.products[1]!.price!.amount, 49);

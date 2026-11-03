@@ -10,6 +10,10 @@ import { shortDate } from "@/lib/data";
 
 export const metadata = { title: "Answer Check · Centurion" };
 
+// Rebuilt at most hourly, so a META_API_KEY added to the deployment takes effect without a rebuild
+// and live runs don't call Llama on every visit.
+export const revalidate = 3600;
+
 const SEVERITY: Record<Severity, { cls: string; label: string }> = {
   high: { cls: "bad", label: "High: banned claim or wrong fact" },
   medium: { cls: "warn", label: "Medium: misleading or out of date" }
@@ -52,7 +56,10 @@ export default async function AnswerCheckPage() {
           real. Assistants: {providers}.
         </span>
       ) : (
-        <span className="preview">Live · answers from {providers} through the official API.</span>
+        <span className="preview">
+          Live · answers from {providers} through the official API, about {run.store.name}
+          {run.demoCatalog ? ", a fictional demo store. The catalog is sample data" : ""}.
+        </span>
       )}
 
       {wrong.flatMap(r =>
