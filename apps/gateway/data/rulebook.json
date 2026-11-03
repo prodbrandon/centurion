@@ -1,0 +1,141 @@
+{
+  "brand": { "name": "Northpine Outfitters", "domain": "northpine.example", "rulebook_version": "2026-10-23.1" },
+  "tiers": {
+    "anonymous": {
+      "description": "Unverified agent or crawler",
+      "can_read": ["facts", "claims", "policies", "products"],
+      "can_act": [],
+      "max_order_usd": 0
+    },
+    "verified_agent": {
+      "description": "Agent verified by Web Bot Auth, Visa TAP or Mastercard Agent Pay, acting for an unknown shopper",
+      "can_read": ["facts", "claims", "policies", "products", "offers"],
+      "can_act": [],
+      "max_order_usd": 500
+    },
+    "linked_member": {
+      "description": "Agent acting for a shopper who linked their loyalty account (UCP Identity Linking / OAuth)",
+      "can_read": ["facts", "claims", "policies", "products", "offers", "orders"],
+      "can_act": ["start_return"],
+      "max_order_usd": 1500
+    },
+    "wholesale_account": {
+      "description": "Buyer agent for an approved wholesale retailer account",
+      "can_read": ["facts", "claims", "policies", "products", "wholesale"],
+      "can_act": ["request_quote"],
+      "max_order_usd": 25000
+    }
+  },
+  "policies": [
+    {
+      "id": "returns",
+      "title": "Returns",
+      "text": "Unworn items can be returned within 60 days of delivery for a full refund. Return shipping is free for loyalty members.",
+      "source": { "system": "gorgias", "ref": "help-center/returns", "updated": "2026-03-02" }
+    },
+    {
+      "id": "shipping",
+      "title": "Shipping",
+      "text": "Free standard shipping on US orders over $75. Standard delivery takes 3 to 5 business days.",
+      "source": { "system": "shopify", "ref": "policies/shipping", "updated": "2026-01-15" }
+    },
+    {
+      "id": "warranty",
+      "title": "Warranty",
+      "text": "Outerwear carries a 2-year warranty against manufacturing defects.",
+      "source": { "system": "notion", "ref": "Warranty Policy v3", "updated": "2025-11-20" }
+    }
+  ],
+  "products": [
+    {
+      "sku": "NP-TH2",
+      "title": "Trailhead 2 Down Jacket",
+      "category": "outerwear",
+      "price_usd": 229,
+      "in_stock": true,
+      "facts": [
+        { "attribute": "fill_power", "value": "800-fill responsibly sourced down", "source": { "system": "shopify", "ref": "metafield specs.fill", "updated": "2026-08-01" } },
+        { "attribute": "water_resistance", "value": "DWR-coated shell, handles light rain and snow; not waterproof", "source": { "system": "notion", "ref": "TH2 Lab Results p.2", "updated": "2026-07-18" } },
+        { "attribute": "comfort_rating", "value": "Comfortable to -12 C when layered (lab tested)", "source": { "system": "notion", "ref": "TH2 Lab Results p.4", "updated": "2026-07-18" } },
+        { "attribute": "weight", "value": "410 g (men's M)", "source": { "system": "shopify", "ref": "metafield specs.weight", "updated": "2026-08-01" } },
+        { "attribute": "packed_size", "value": "24 x 14 cm in the included stuff sack", "source": { "system": "notion", "ref": "TH2 Lab Results p.3", "updated": "2026-07-18" } }
+      ],
+      "approved_claims": ["water resistant", "packable", "800-fill down", "warm to -12 C"],
+      "prohibited_claims": ["waterproof", "warmest jacket", "lifetime warranty"]
+    },
+    {
+      "sku": "NP-RB45",
+      "title": "Ridgeback 45L Pack",
+      "category": "packs",
+      "price_usd": 189,
+      "in_stock": true,
+      "facts": [
+        { "attribute": "volume", "value": "45 liters", "source": { "system": "shopify", "ref": "metafield specs.volume", "updated": "2026-05-10" } },
+        { "attribute": "torso_fit", "value": "Adjustable torso 16 to 21 in", "source": { "system": "shopify", "ref": "metafield specs.torso", "updated": "2026-05-10" } },
+        { "attribute": "weight", "value": "1.3 kg", "source": { "system": "shopify", "ref": "metafield specs.weight", "updated": "2026-05-10" } }
+      ],
+      "approved_claims": ["adjustable torso", "45 liters", "carry-on compatible"],
+      "prohibited_claims": ["fits everyone", "ultralight"]
+    },
+    {
+      "sku": "NP-CM2",
+      "title": "Cedar Merino Base Layer",
+      "category": "base layers",
+      "price_usd": 89,
+      "in_stock": false,
+      "facts": [
+        { "attribute": "material", "value": "100% 200gsm merino wool", "source": { "system": "shopify", "ref": "metafield specs.material", "updated": "2026-02-01" } },
+        { "attribute": "care", "value": "Machine wash cold, lay flat to dry", "source": { "system": "shopify", "ref": "metafield specs.care", "updated": "2026-02-01" } }
+      ],
+      "approved_claims": ["merino wool", "machine washable"],
+      "prohibited_claims": ["odor-proof", "antibacterial"]
+    }
+  ],
+  "offers": [
+    {
+      "id": "member-10",
+      "tier": "linked_member",
+      "basis": "loyalty_program",
+      "description": "10% off for Northpine Trail Club members",
+      "percent_off": 10,
+      "applies_to": "all",
+      "expires": "2026-12-31"
+    },
+    {
+      "id": "agent-free-ship",
+      "tier": "verified_agent",
+      "basis": "published_promotion",
+      "description": "Free standard shipping on any order placed by a verified shopping agent",
+      "percent_off": 0,
+      "applies_to": "all",
+      "expires": "2026-11-30"
+    }
+  ],
+  "wholesale": {
+    "terms": "Net 30 for approved accounts",
+    "max_discount_pct": 5,
+    "price_list": [
+      { "sku": "NP-TH2", "unit_usd": 114.5, "moq": 12 },
+      { "sku": "NP-RB45", "unit_usd": 94.5, "moq": 6 },
+      { "sku": "NP-CM2", "unit_usd": 44.5, "moq": 24 }
+    ]
+  },
+  "orders": [
+    {
+      "id": "NP-100482",
+      "member_id": "member_123",
+      "status": "delivered",
+      "placed_at": "2026-09-28",
+      "delivered_at": "2026-10-02",
+      "items": [{ "sku": "NP-TH2", "qty": 1, "price_usd": 229 }]
+    },
+    {
+      "id": "NP-100917",
+      "member_id": "member_123",
+      "status": "in_transit",
+      "placed_at": "2026-10-20",
+      "delivered_at": null,
+      "items": [{ "sku": "NP-RB45", "qty": 1, "price_usd": 189 }]
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "version": "2026-10-23.1",
+  "notes": "Seed list of AI sources. Grows through `ai-sales discover`, which surfaces unknown referrers that convert. Each entry records how it was added so the dataset stays auditable.",
+  "signatures": [
+    {
+      "id": "chatgpt",
+      "label": "ChatGPT",
+      "vendor": "OpenAI",
+      "referrer_hosts": ["chatgpt.com", "chat.openai.com"],
+      "utm_sources": ["chatgpt.com", "chatgpt", "openai"],
+      "channel_patterns": ["chatgpt", "openai"],
+      "added": "2026-10-23",
+      "added_by": "seed"
+    },
+    {
+      "id": "perplexity",
+      "label": "Perplexity",
+      "vendor": "Perplexity",
+      "referrer_hosts": ["perplexity.ai", "www.perplexity.ai"],
+      "utm_sources": ["perplexity", "perplexity.ai"],
+      "channel_patterns": ["perplexity", "comet"],
+      "added": "2026-10-23",
+      "added_by": "seed"
+    },
+    {
+      "id": "gemini",
+      "label": "Gemini",
+      "vendor": "Google",
+      "referrer_hosts": ["gemini.google.com", "bard.google.com"],
+      "utm_sources": ["gemini", "gemini.google.com"],
+      "channel_patterns": ["gemini", "ai mode"],
+      "added": "2026-10-23",
+      "added_by": "seed"
+    },
+    {
+      "id": "copilot",
+      "label": "Microsoft Copilot",
+      "vendor": "Microsoft",
+      "referrer_hosts": ["copilot.microsoft.com", "copilot.cloud.microsoft"],
+      "utm_sources": ["copilot", "copilot.com"],
+      "channel_patterns": ["copilot"],
+      "added": "2026-10-23",
+      "added_by": "seed"
+    },
+    {
+      "id": "claude",
+      "label": "Claude",
+      "vendor": "Anthropic",
+      "referrer_hosts": ["claude.ai"],
+      "utm_sources": ["claude", "claude.ai"],
+      "channel_patterns": ["claude", "anthropic"],
+      "added": "2026-10-23",
+      "added_by": "seed"
+    },
+    {
+      "id": "meta_ai",
+      "label": "Meta AI",
+      "vendor": "Meta",
+      "referrer_hosts": ["meta.ai", "www.meta.ai"],
+      "utm_sources": ["meta.ai", "meta_ai"],
+      "channel_patterns": ["meta ai", "muse"],
+      "added": "2026-10-23",
+      "added_by": "seed"
+    },
+    {
+      "id": "grok",
+      "label": "Grok",
+      "vendor": "xAI",
+      "referrer_hosts": ["grok.com", "x.ai"],
+      "utm_sources": ["grok"],
+      "channel_patterns": ["grok"],
+      "added": "2026-10-23",
+      "added_by": "seed"
+    }
+  ],
+  "known_limits": [
+    "Google AI Overviews and AI Mode clicks usually arrive with a plain google.com referrer and cannot be told apart from normal search from order data alone.",
+    "Many in-app browsers strip the referrer; those visits show as direct. The engine reports them as candidates, never as AI revenue."
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@centurion/attribution",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Finds the Shopify orders that AI assistants and agents sent, with evidence and confidence, and grows a dataset of AI sources.",
+  "type": "module",
+  "bin": { "attribution": "dist/cli.js" },
+  "scripts": {
+    "build": "tsc",
+    "test": "tsx --test test/*.test.ts",
+    "sample": "tsx scripts/make-sample.ts data/sample-orders.json",
+    "report": "tsx src/cli.ts report --input data/sample-orders.json"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": { "zod": "^4.2.0" },
+  "devDependencies": { "@types/node": "^24.0.0", "tsx": "^4.19.2", "typescript": "^5.9.3" }
+}

@@ -1,0 +1,64 @@
+# One ignore file for the whole repo. Package folders have no .gitignore of their own.
+
+# ---------------------------------------------------------------------------
+# Dependencies, builds and caches
+# ---------------------------------------------------------------------------
+node_modules/
+dist/
+build/
+coverage/
+.cache/
+.next/
+.react-router/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+apps/shopify/public/build/
+apps/shopify/extensions/*/dist/
+
+# ---------------------------------------------------------------------------
+# Secrets and credentials. Only the empty template is shared.
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.crt
+
+# ---------------------------------------------------------------------------
+# Local state: databases, logs, Shopify CLI link to a store
+# ---------------------------------------------------------------------------
+*.sqlite
+*.sqlite-journal
+*.db
+*.jsonl
+*.log
+.shopify/
+.shopify.lock
+.playwright-mcp/
+test-results/
+playwright-report/
+*.webm
+*.mp4
+
+# Lockfiles from other package managers (npm lockfiles are committed)
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
+
+# ---------------------------------------------------------------------------
+# Private notes
+# ---------------------------------------------------------------------------
+docs/
+
+# ---------------------------------------------------------------------------
+# OS and editor
+# ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp

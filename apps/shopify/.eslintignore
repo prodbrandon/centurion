@@ -1,0 +1,8 @@
+node_modules
+build
+public/build
+*/*.yml
+.shopify
+.react-router
+.cache
+extensions/*/dist

@@ -1,0 +1,2019 @@
+{
+  "generatedAt": "2026-11-03T09:32:40.266Z",
+  "signaturesVersion": "2026-10-23.1",
+  "store": {
+    "name": "Northpine Outfitters",
+    "domain": "northpine.example"
+  },
+  "report": {
+    "period": {
+      "from": "2026-07-25",
+      "to": "2026-10-22"
+    },
+    "orders": 1500,
+    "revenue": 290085,
+    "ai": {
+      "orders": 99,
+      "revenue": 18861,
+      "share_of_revenue": 6.5,
+      "avg_order_value": 190.52,
+      "non_ai_avg_order_value": 193.59
+    },
+    "by_source": [
+      {
+        "source": "chatgpt",
+        "label": "ChatGPT",
+        "orders": 73,
+        "revenue": 14042
+      },
+      {
+        "source": "perplexity",
+        "label": "Perplexity",
+        "orders": 13,
+        "revenue": 2377
+      },
+      {
+        "source": "gemini",
+        "label": "Gemini",
+        "orders": 7,
+        "revenue": 1635
+      },
+      {
+        "source": "copilot",
+        "label": "Microsoft Copilot",
+        "orders": 6,
+        "revenue": 807
+      }
+    ],
+    "by_touch": [
+      {
+        "touch": "both",
+        "orders": 54,
+        "revenue": 9931
+      },
+      {
+        "touch": "first",
+        "orders": 24,
+        "revenue": 5233
+      },
+      {
+        "touch": "last",
+        "orders": 17,
+        "revenue": 2881
+      },
+      {
+        "touch": "checkout",
+        "orders": 4,
+        "revenue": 816
+      }
+    ],
+    "by_evidence": [
+      {
+        "evidence": "utm",
+        "orders": 52,
+        "revenue": 10345
+      },
+      {
+        "evidence": "referrer",
+        "orders": 43,
+        "revenue": 7700
+      },
+      {
+        "evidence": "checkout_in_ai",
+        "orders": 4,
+        "revenue": 816
+      }
+    ],
+    "top_products": [
+      {
+        "title": "Basecamp 2P Tent",
+        "units": 15,
+        "revenue": 5235
+      },
+      {
+        "title": "Ridgeback 45L Pack",
+        "units": 26,
+        "revenue": 4914
+      },
+      {
+        "title": "Trailhead 2 Down Jacket",
+        "units": 17,
+        "revenue": 3893
+      },
+      {
+        "title": "Switchback Trail Runner",
+        "units": 19,
+        "revenue": 2641
+      },
+      {
+        "title": "Cedar Merino Base Layer",
+        "units": 18,
+        "revenue": 1602
+      },
+      {
+        "title": "Summit Wool Beanie",
+        "units": 18,
+        "revenue": 576
+      }
+    ],
+    "weekly": [
+      {
+        "week_start": "2026-07-20",
+        "ai_revenue": 368,
+        "total_revenue": 6097
+      },
+      {
+        "week_start": "2026-07-27",
+        "ai_revenue": 791,
+        "total_revenue": 23158
+      },
+      {
+        "week_start": "2026-08-03",
+        "ai_revenue": 1116,
+        "total_revenue": 23935
+      },
+      {
+        "week_start": "2026-08-10",
+        "ai_revenue": 969,
+        "total_revenue": 25408
+      },
+      {
+        "week_start": "2026-08-17",
+        "ai_revenue": 856,
+        "total_revenue": 20750
+      },
+      {
+        "week_start": "2026-08-24",
+        "ai_revenue": 2312,
+        "total_revenue": 23796
+      },
+      {
+        "week_start": "2026-08-31",
+        "ai_revenue": 1767,
+        "total_revenue": 20145
+      },
+      {
+        "week_start": "2026-09-07",
+        "ai_revenue": 1419,
+        "total_revenue": 24017
+      },
+      {
+        "week_start": "2026-09-14",
+        "ai_revenue": 1893,
+        "total_revenue": 25868
+      },
+      {
+        "week_start": "2026-09-21",
+        "ai_revenue": 1274,
+        "total_revenue": 18548
+      },
+      {
+        "week_start": "2026-09-28",
+        "ai_revenue": 1984,
+        "total_revenue": 19887
+      },
+      {
+        "week_start": "2026-10-05",
+        "ai_revenue": 1042,
+        "total_revenue": 18246
+      },
+      {
+        "week_start": "2026-10-12",
+        "ai_revenue": 1933,
+        "total_revenue": 25554
+      },
+      {
+        "week_start": "2026-10-19",
+        "ai_revenue": 1137,
+        "total_revenue": 14676
+      }
+    ],
+    "candidates": {
+      "orders": 89,
+      "revenue": 17818
+    },
+    "sample_proof": [
+      {
+        "order": "#10944",
+        "source": "ChatGPT",
+        "total": 139,
+        "proof": [
+          "first visit had utm_source=chatgpt.com"
+        ]
+      },
+      {
+        "order": "#10360",
+        "source": "ChatGPT",
+        "total": 229,
+        "proof": [
+          "last visit referrer was chatgpt.com"
+        ]
+      },
+      {
+        "order": "#10414",
+        "source": "ChatGPT",
+        "total": 32,
+        "proof": [
+          "first visit had utm_source=chatgpt.com"
+        ]
+      },
+      {
+        "order": "#10829",
+        "source": "ChatGPT",
+        "total": 32,
+        "proof": [
+          "last visit referrer was chatgpt.com"
+        ]
+      },
+      {
+        "order": "#10619",
+        "source": "ChatGPT",
+        "total": 189,
+        "proof": [
+          "first visit had utm_source=chatgpt.com",
+          "last visit had utm_source=chatgpt.com"
+        ]
+      }
+    ]
+  },
+  "aiOrders": [
+    {
+      "name": "#11342",
+      "createdAt": "2026-10-22T04:38:55.747Z",
+      "total": 189,
+      "source": "ChatGPT",
+      "touch": "first",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Ridgeback 45L Pack",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10861",
+      "createdAt": "2026-10-22T04:09:23.982Z",
+      "total": 32,
+      "source": "ChatGPT",
+      "touch": "last",
+      "evidence": "referrer",
+      "proof": [
+        "last visit referrer was chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Summit Wool Beanie",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10119",
+      "createdAt": "2026-10-22T02:56:57.918Z",
+      "total": 189,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Ridgeback 45L Pack",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10676",
+      "createdAt": "2026-10-21T13:28:57.031Z",
+      "total": 32,
+      "source": "Perplexity",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was www.perplexity.ai",
+        "last visit referrer was www.perplexity.ai"
+      ],
+      "items": [
+        {
+          "title": "Summit Wool Beanie",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10157",
+      "createdAt": "2026-10-21T08:39:44.124Z",
+      "total": 178,
+      "source": "ChatGPT",
+      "touch": "first",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Cedar Merino Base Layer",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "name": "#10799",
+      "createdAt": "2026-10-20T12:34:51.699Z",
+      "total": 189,
+      "source": "ChatGPT",
+      "touch": "first",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Ridgeback 45L Pack",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10787",
+      "createdAt": "2026-10-19T01:46:43.565Z",
+      "total": 189,
+      "source": "ChatGPT",
+      "touch": "last",
+      "evidence": "referrer",
+      "proof": [
+        "last visit referrer was chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Ridgeback 45L Pack",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10449",
+      "createdAt": "2026-10-19T00:07:38.452Z",
+      "total": 139,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Switchback Trail Runner",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10796",
+      "createdAt": "2026-10-18T05:24:27.550Z",
+      "total": 229,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Trailhead 2 Down Jacket",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10389",
+      "createdAt": "2026-10-18T02:12:20.393Z",
+      "total": 278,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Switchback Trail Runner",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "name": "#10968",
+      "createdAt": "2026-10-17T21:29:47.785Z",
+      "total": 89,
+      "source": "ChatGPT",
+      "touch": "first",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Cedar Merino Base Layer",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11251",
+      "createdAt": "2026-10-17T16:11:22.404Z",
+      "total": 32,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Summit Wool Beanie",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11316",
+      "createdAt": "2026-10-17T00:44:18.738Z",
+      "total": 349,
+      "source": "Perplexity",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was www.perplexity.ai",
+        "last visit referrer was www.perplexity.ai"
+      ],
+      "items": [
+        {
+          "title": "Basecamp 2P Tent",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10077",
+      "createdAt": "2026-10-16T09:36:57.174Z",
+      "total": 349,
+      "source": "Gemini",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was gemini.google.com",
+        "last visit referrer was gemini.google.com"
+      ],
+      "items": [
+        {
+          "title": "Basecamp 2P Tent",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10254",
+      "createdAt": "2026-10-13T20:05:05.405Z",
+      "total": 229,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Trailhead 2 Down Jacket",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11098",
+      "createdAt": "2026-10-13T14:57:17.569Z",
+      "total": 189,
+      "source": "Perplexity",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was www.perplexity.ai",
+        "last visit referrer was www.perplexity.ai"
+      ],
+      "items": [
+        {
+          "title": "Ridgeback 45L Pack",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10094",
+      "createdAt": "2026-10-13T12:09:55.436Z",
+      "total": 189,
+      "source": "Gemini",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was gemini.google.com",
+        "last visit referrer was gemini.google.com"
+      ],
+      "items": [
+        {
+          "title": "Ridgeback 45L Pack",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11344",
+      "createdAt": "2026-10-10T11:00:07.372Z",
+      "total": 139,
+      "source": "ChatGPT",
+      "touch": "checkout",
+      "evidence": "checkout_in_ai",
+      "proof": [
+        "order channel is \"ChatGPT\""
+      ],
+      "items": [
+        {
+          "title": "Switchback Trail Runner",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11119",
+      "createdAt": "2026-10-09T22:04:19.481Z",
+      "total": 89,
+      "source": "Microsoft Copilot",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was copilot.microsoft.com",
+        "last visit referrer was copilot.microsoft.com"
+      ],
+      "items": [
+        {
+          "title": "Cedar Merino Base Layer",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10307",
+      "createdAt": "2026-10-07T21:49:47.343Z",
+      "total": 89,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Cedar Merino Base Layer",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10155",
+      "createdAt": "2026-10-07T15:29:52.468Z",
+      "total": 178,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Cedar Merino Base Layer",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "name": "#10483",
+      "createdAt": "2026-10-07T09:00:30.940Z",
+      "total": 458,
+      "source": "ChatGPT",
+      "touch": "first",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Trailhead 2 Down Jacket",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "name": "#11143",
+      "createdAt": "2026-10-05T17:11:13.334Z",
+      "total": 89,
+      "source": "ChatGPT",
+      "touch": "last",
+      "evidence": "referrer",
+      "proof": [
+        "last visit referrer was chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Cedar Merino Base Layer",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11409",
+      "createdAt": "2026-10-04T18:30:24.846Z",
+      "total": 229,
+      "source": "ChatGPT",
+      "touch": "last",
+      "evidence": "referrer",
+      "proof": [
+        "last visit referrer was chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Trailhead 2 Down Jacket",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10535",
+      "createdAt": "2026-10-04T07:43:36.909Z",
+      "total": 32,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Summit Wool Beanie",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11204",
+      "createdAt": "2026-10-03T18:54:50.251Z",
+      "total": 349,
+      "source": "Perplexity",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was www.perplexity.ai",
+        "last visit referrer was www.perplexity.ai"
+      ],
+      "items": [
+        {
+          "title": "Basecamp 2P Tent",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10326",
+      "createdAt": "2026-10-03T08:54:43.679Z",
+      "total": 189,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Ridgeback 45L Pack",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11412",
+      "createdAt": "2026-10-03T08:31:51.524Z",
+      "total": 189,
+      "source": "ChatGPT",
+      "touch": "last",
+      "evidence": "referrer",
+      "proof": [
+        "last visit referrer was chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Ridgeback 45L Pack",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11320",
+      "createdAt": "2026-10-01T15:15:52.532Z",
+      "total": 229,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Trailhead 2 Down Jacket",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10898",
+      "createdAt": "2026-09-30T22:32:24.987Z",
+      "total": 349,
+      "source": "ChatGPT",
+      "touch": "checkout",
+      "evidence": "checkout_in_ai",
+      "proof": [
+        "order channel is \"ChatGPT\""
+      ],
+      "items": [
+        {
+          "title": "Basecamp 2P Tent",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10358",
+      "createdAt": "2026-09-28T04:51:29.595Z",
+      "total": 229,
+      "source": "ChatGPT",
+      "touch": "first",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Trailhead 2 Down Jacket",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11115",
+      "createdAt": "2026-09-28T03:57:36.633Z",
+      "total": 189,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Ridgeback 45L Pack",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10604",
+      "createdAt": "2026-09-27T02:41:00.480Z",
+      "total": 349,
+      "source": "ChatGPT",
+      "touch": "first",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Basecamp 2P Tent",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10923",
+      "createdAt": "2026-09-26T23:30:03.028Z",
+      "total": 378,
+      "source": "ChatGPT",
+      "touch": "first",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Ridgeback 45L Pack",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "name": "#11396",
+      "createdAt": "2026-09-26T12:14:18.872Z",
+      "total": 458,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Trailhead 2 Down Jacket",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "name": "#10071",
+      "createdAt": "2026-09-26T07:11:35.509Z",
+      "total": 89,
+      "source": "ChatGPT",
+      "touch": "last",
+      "evidence": "referrer",
+      "proof": [
+        "last visit referrer was chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Cedar Merino Base Layer",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11227",
+      "createdAt": "2026-09-20T04:14:47.421Z",
+      "total": 139,
+      "source": "Gemini",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was gemini.google.com",
+        "last visit referrer was gemini.google.com"
+      ],
+      "items": [
+        {
+          "title": "Switchback Trail Runner",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11406",
+      "createdAt": "2026-09-19T21:18:23.310Z",
+      "total": 229,
+      "source": "ChatGPT",
+      "touch": "first",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Trailhead 2 Down Jacket",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11154",
+      "createdAt": "2026-09-19T09:04:57.580Z",
+      "total": 378,
+      "source": "Perplexity",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was www.perplexity.ai",
+        "last visit referrer was www.perplexity.ai"
+      ],
+      "items": [
+        {
+          "title": "Ridgeback 45L Pack",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "name": "#10989",
+      "createdAt": "2026-09-19T07:37:04.051Z",
+      "total": 89,
+      "source": "ChatGPT",
+      "touch": "first",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Cedar Merino Base Layer",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10303",
+      "createdAt": "2026-09-18T02:05:36.756Z",
+      "total": 64,
+      "source": "ChatGPT",
+      "touch": "first",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Summit Wool Beanie",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "name": "#10149",
+      "createdAt": "2026-09-17T20:34:32.483Z",
+      "total": 139,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Switchback Trail Runner",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11310",
+      "createdAt": "2026-09-17T18:56:36.814Z",
+      "total": 349,
+      "source": "ChatGPT",
+      "touch": "first",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Basecamp 2P Tent",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11394",
+      "createdAt": "2026-09-16T14:28:26.448Z",
+      "total": 139,
+      "source": "ChatGPT",
+      "touch": "checkout",
+      "evidence": "checkout_in_ai",
+      "proof": [
+        "order channel is \"ChatGPT\""
+      ],
+      "items": [
+        {
+          "title": "Switchback Trail Runner",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11260",
+      "createdAt": "2026-09-16T09:17:32.394Z",
+      "total": 178,
+      "source": "Perplexity",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was www.perplexity.ai",
+        "last visit referrer was www.perplexity.ai"
+      ],
+      "items": [
+        {
+          "title": "Cedar Merino Base Layer",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "name": "#11258",
+      "createdAt": "2026-09-15T20:45:38.530Z",
+      "total": 189,
+      "source": "ChatGPT",
+      "touch": "first",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Ridgeback 45L Pack",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10230",
+      "createdAt": "2026-09-13T05:29:44.381Z",
+      "total": 189,
+      "source": "ChatGPT",
+      "touch": "checkout",
+      "evidence": "checkout_in_ai",
+      "proof": [
+        "order channel is \"ChatGPT\""
+      ],
+      "items": [
+        {
+          "title": "Ridgeback 45L Pack",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10593",
+      "createdAt": "2026-09-12T18:51:18.757Z",
+      "total": 32,
+      "source": "Perplexity",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was www.perplexity.ai",
+        "last visit referrer was www.perplexity.ai"
+      ],
+      "items": [
+        {
+          "title": "Summit Wool Beanie",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10189",
+      "createdAt": "2026-09-11T00:08:57.317Z",
+      "total": 89,
+      "source": "Perplexity",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was www.perplexity.ai",
+        "last visit referrer was www.perplexity.ai"
+      ],
+      "items": [
+        {
+          "title": "Cedar Merino Base Layer",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10025",
+      "createdAt": "2026-09-10T16:53:06.655Z",
+      "total": 139,
+      "source": "ChatGPT",
+      "touch": "last",
+      "evidence": "referrer",
+      "proof": [
+        "last visit referrer was chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Switchback Trail Runner",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10499",
+      "createdAt": "2026-09-10T16:50:54.023Z",
+      "total": 32,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Summit Wool Beanie",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10949",
+      "createdAt": "2026-09-10T01:25:28.373Z",
+      "total": 189,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Ridgeback 45L Pack",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10447",
+      "createdAt": "2026-09-07T07:55:08.311Z",
+      "total": 32,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Summit Wool Beanie",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11026",
+      "createdAt": "2026-09-07T05:45:12.667Z",
+      "total": 349,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Basecamp 2P Tent",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10988",
+      "createdAt": "2026-09-07T02:23:28.427Z",
+      "total": 139,
+      "source": "ChatGPT",
+      "touch": "first",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Switchback Trail Runner",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11129",
+      "createdAt": "2026-09-07T00:31:40.040Z",
+      "total": 229,
+      "source": "ChatGPT",
+      "touch": "first",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Trailhead 2 Down Jacket",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10663",
+      "createdAt": "2026-09-06T11:09:00.853Z",
+      "total": 229,
+      "source": "Microsoft Copilot",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was copilot.microsoft.com",
+        "last visit referrer was copilot.microsoft.com"
+      ],
+      "items": [
+        {
+          "title": "Trailhead 2 Down Jacket",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10037",
+      "createdAt": "2026-09-06T06:15:24.966Z",
+      "total": 229,
+      "source": "Microsoft Copilot",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was copilot.microsoft.com",
+        "last visit referrer was copilot.microsoft.com"
+      ],
+      "items": [
+        {
+          "title": "Trailhead 2 Down Jacket",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10659",
+      "createdAt": "2026-09-05T22:47:17.484Z",
+      "total": 89,
+      "source": "ChatGPT",
+      "touch": "last",
+      "evidence": "referrer",
+      "proof": [
+        "last visit referrer was chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Cedar Merino Base Layer",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10940",
+      "createdAt": "2026-09-03T22:47:52.596Z",
+      "total": 32,
+      "source": "Microsoft Copilot",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was copilot.microsoft.com",
+        "last visit referrer was copilot.microsoft.com"
+      ],
+      "items": [
+        {
+          "title": "Summit Wool Beanie",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10678",
+      "createdAt": "2026-09-02T16:30:13.382Z",
+      "total": 378,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Ridgeback 45L Pack",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "name": "#11192",
+      "createdAt": "2026-09-01T20:18:37.400Z",
+      "total": 139,
+      "source": "Gemini",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was gemini.google.com",
+        "last visit referrer was gemini.google.com"
+      ],
+      "items": [
+        {
+          "title": "Switchback Trail Runner",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11198",
+      "createdAt": "2026-09-01T13:20:36.232Z",
+      "total": 32,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Summit Wool Beanie",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10318",
+      "createdAt": "2026-09-01T06:02:53.819Z",
+      "total": 229,
+      "source": "ChatGPT",
+      "touch": "first",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Trailhead 2 Down Jacket",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10786",
+      "createdAt": "2026-09-01T00:02:06.552Z",
+      "total": 32,
+      "source": "ChatGPT",
+      "touch": "first",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Summit Wool Beanie",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10324",
+      "createdAt": "2026-08-31T12:08:58.493Z",
+      "total": 378,
+      "source": "ChatGPT",
+      "touch": "first",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Ridgeback 45L Pack",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "name": "#10365",
+      "createdAt": "2026-08-30T12:59:55.531Z",
+      "total": 89,
+      "source": "Gemini",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was gemini.google.com",
+        "last visit referrer was gemini.google.com"
+      ],
+      "items": [
+        {
+          "title": "Cedar Merino Base Layer",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10509",
+      "createdAt": "2026-08-30T02:49:39.968Z",
+      "total": 349,
+      "source": "ChatGPT",
+      "touch": "first",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Basecamp 2P Tent",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10533",
+      "createdAt": "2026-08-29T17:03:26.981Z",
+      "total": 32,
+      "source": "Perplexity",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was www.perplexity.ai",
+        "last visit referrer was www.perplexity.ai"
+      ],
+      "items": [
+        {
+          "title": "Summit Wool Beanie",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10555",
+      "createdAt": "2026-08-29T15:20:07.357Z",
+      "total": 139,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Switchback Trail Runner",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10343",
+      "createdAt": "2026-08-28T17:27:58.128Z",
+      "total": 139,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Switchback Trail Runner",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10914",
+      "createdAt": "2026-08-28T10:36:37.385Z",
+      "total": 349,
+      "source": "ChatGPT",
+      "touch": "last",
+      "evidence": "referrer",
+      "proof": [
+        "last visit referrer was chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Basecamp 2P Tent",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10503",
+      "createdAt": "2026-08-26T18:22:35.652Z",
+      "total": 378,
+      "source": "ChatGPT",
+      "touch": "last",
+      "evidence": "referrer",
+      "proof": [
+        "last visit referrer was chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Ridgeback 45L Pack",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "name": "#11131",
+      "createdAt": "2026-08-25T11:08:27.750Z",
+      "total": 139,
+      "source": "ChatGPT",
+      "touch": "last",
+      "evidence": "referrer",
+      "proof": [
+        "last visit referrer was chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Switchback Trail Runner",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10907",
+      "createdAt": "2026-08-25T00:17:34.971Z",
+      "total": 698,
+      "source": "Gemini",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was gemini.google.com",
+        "last visit referrer was gemini.google.com"
+      ],
+      "items": [
+        {
+          "title": "Basecamp 2P Tent",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "name": "#10287",
+      "createdAt": "2026-08-21T09:53:07.774Z",
+      "total": 349,
+      "source": "Perplexity",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was www.perplexity.ai",
+        "last visit referrer was www.perplexity.ai"
+      ],
+      "items": [
+        {
+          "title": "Basecamp 2P Tent",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10689",
+      "createdAt": "2026-08-20T20:45:57.533Z",
+      "total": 229,
+      "source": "Perplexity",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was www.perplexity.ai",
+        "last visit referrer was www.perplexity.ai"
+      ],
+      "items": [
+        {
+          "title": "Trailhead 2 Down Jacket",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11309",
+      "createdAt": "2026-08-19T14:01:36.722Z",
+      "total": 139,
+      "source": "ChatGPT",
+      "touch": "last",
+      "evidence": "referrer",
+      "proof": [
+        "last visit referrer was chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Switchback Trail Runner",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10361",
+      "createdAt": "2026-08-18T06:25:17.083Z",
+      "total": 139,
+      "source": "Perplexity",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was www.perplexity.ai",
+        "last visit referrer was www.perplexity.ai"
+      ],
+      "items": [
+        {
+          "title": "Switchback Trail Runner",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11029",
+      "createdAt": "2026-08-16T07:51:51.704Z",
+      "total": 349,
+      "source": "ChatGPT",
+      "touch": "first",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Basecamp 2P Tent",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11479",
+      "createdAt": "2026-08-15T05:37:26.507Z",
+      "total": 189,
+      "source": "ChatGPT",
+      "touch": "first",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Ridgeback 45L Pack",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10271",
+      "createdAt": "2026-08-14T09:01:08.475Z",
+      "total": 32,
+      "source": "Perplexity",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was www.perplexity.ai",
+        "last visit referrer was www.perplexity.ai"
+      ],
+      "items": [
+        {
+          "title": "Summit Wool Beanie",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10274",
+      "createdAt": "2026-08-13T20:31:10.427Z",
+      "total": 89,
+      "source": "Microsoft Copilot",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was copilot.microsoft.com",
+        "last visit referrer was copilot.microsoft.com"
+      ],
+      "items": [
+        {
+          "title": "Cedar Merino Base Layer",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11194",
+      "createdAt": "2026-08-13T04:49:44.524Z",
+      "total": 89,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Cedar Merino Base Layer",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10008",
+      "createdAt": "2026-08-11T13:39:14.857Z",
+      "total": 189,
+      "source": "ChatGPT",
+      "touch": "first",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Ridgeback 45L Pack",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10333",
+      "createdAt": "2026-08-10T15:49:28.540Z",
+      "total": 32,
+      "source": "Gemini",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was gemini.google.com",
+        "last visit referrer was gemini.google.com"
+      ],
+      "items": [
+        {
+          "title": "Summit Wool Beanie",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10268",
+      "createdAt": "2026-08-09T17:01:34.223Z",
+      "total": 189,
+      "source": "ChatGPT",
+      "touch": "last",
+      "evidence": "referrer",
+      "proof": [
+        "last visit referrer was chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Ridgeback 45L Pack",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10530",
+      "createdAt": "2026-08-05T17:38:52.526Z",
+      "total": 349,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Basecamp 2P Tent",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11438",
+      "createdAt": "2026-08-03T16:24:22.708Z",
+      "total": 229,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Trailhead 2 Down Jacket",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10103",
+      "createdAt": "2026-08-03T00:47:47.399Z",
+      "total": 349,
+      "source": "ChatGPT",
+      "touch": "last",
+      "evidence": "referrer",
+      "proof": [
+        "last visit referrer was chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Basecamp 2P Tent",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#11296",
+      "createdAt": "2026-08-02T23:17:41.252Z",
+      "total": 32,
+      "source": "ChatGPT",
+      "touch": "last",
+      "evidence": "referrer",
+      "proof": [
+        "last visit referrer was chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Summit Wool Beanie",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10536",
+      "createdAt": "2026-08-02T13:33:12.587Z",
+      "total": 89,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Cedar Merino Base Layer",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10534",
+      "createdAt": "2026-08-01T23:16:07.623Z",
+      "total": 278,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Switchback Trail Runner",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "name": "#10465",
+      "createdAt": "2026-08-01T02:56:43.045Z",
+      "total": 139,
+      "source": "Microsoft Copilot",
+      "touch": "both",
+      "evidence": "referrer",
+      "proof": [
+        "first visit referrer was copilot.microsoft.com",
+        "last visit referrer was copilot.microsoft.com"
+      ],
+      "items": [
+        {
+          "title": "Switchback Trail Runner",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10619",
+      "createdAt": "2026-08-01T00:37:26.978Z",
+      "total": 189,
+      "source": "ChatGPT",
+      "touch": "both",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com",
+        "last visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Ridgeback 45L Pack",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10829",
+      "createdAt": "2026-07-31T15:11:23.142Z",
+      "total": 32,
+      "source": "ChatGPT",
+      "touch": "last",
+      "evidence": "referrer",
+      "proof": [
+        "last visit referrer was chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Summit Wool Beanie",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10414",
+      "createdAt": "2026-07-28T06:21:38.963Z",
+      "total": 32,
+      "source": "ChatGPT",
+      "touch": "first",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Summit Wool Beanie",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10360",
+      "createdAt": "2026-07-25T21:39:52.981Z",
+      "total": 229,
+      "source": "ChatGPT",
+      "touch": "last",
+      "evidence": "referrer",
+      "proof": [
+        "last visit referrer was chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Trailhead 2 Down Jacket",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "name": "#10944",
+      "createdAt": "2026-07-25T15:17:48.352Z",
+      "total": 139,
+      "source": "ChatGPT",
+      "touch": "first",
+      "evidence": "utm",
+      "proof": [
+        "first visit had utm_source=chatgpt.com"
+      ],
+      "items": [
+        {
+          "title": "Switchback Trail Runner",
+          "quantity": 1
+        }
+      ]
+    }
+  ],
+  "candidates": {
+    "orders": 89,
+    "revenue": 17818,
+    "examples": [
+      {
+        "name": "#10074",
+        "total": 349,
+        "proof": [
+          "first visit was direct to /products/basecamp-2p-tent, a pattern that often hides AI links"
+        ]
+      },
+      {
+        "name": "#10132",
+        "total": 32,
+        "proof": [
+          "first visit was direct to /products/summit-wool-beanie, a pattern that often hides AI links"
+        ]
+      },
+      {
+        "name": "#10221",
+        "total": 32,
+        "proof": [
+          "first visit was direct to /products/summit-wool-beanie, a pattern that often hides AI links"
+        ]
+      },
+      {
+        "name": "#10304",
+        "total": 139,
+        "proof": [
+          "first visit was direct to /products/switchback-trail-runner, a pattern that often hides AI links"
+        ]
+      },
+      {
+        "name": "#10015",
+        "total": 139,
+        "proof": [
+          "first visit was direct to /products/switchback-trail-runner, a pattern that often hides AI links"
+        ]
+      }
+    ]
+  }
+}

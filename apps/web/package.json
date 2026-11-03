@@ -1,0 +1,27 @@
+{
+  "name": "@centurion/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Centurion web app. Demo mode runs on the fictional Northpine Outfitters store; live mode reads the same Supabase data as the Shopify app.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "demo-data": "tsx scripts/build-demo-data.ts"
+  },
+  "engines": { "node": ">=22.12" },
+  "dependencies": {
+    "@centurion/core": "file:../../packages/core",
+    "next": "16.4.3",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "tsx": "4.23.15",
+    "typescript": "^5.9.3"
+  }
+}
