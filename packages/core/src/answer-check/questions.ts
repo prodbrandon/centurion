@@ -21,13 +21,15 @@ const POLICY_QUESTIONS: Record<string, (store: string) => string> = {
 
 function productQuestions(p: CatalogProduct, store: string): Question[] {
   const subject = { kind: "product" as const, id: p.id, title: p.title };
-  const qs: Question[] = [{ id: `${p.id}:overview`, subject, focus: "overview", text: `What should I know about the ${p.title} from ${store} before I buy it?` }];
+  // "The Hidden Snowboard" reads "the Hidden Snowboard" after "the", not "the The Hidden Snowboard".
+  const t = p.title.replace(/^the\s+/i, "");
+  const qs: Question[] = [{ id: `${p.id}:overview`, subject, focus: "overview", text: `What should I know about the ${t} from ${store} before I buy it?` }];
   for (const f of p.facts) {
     const template = FACT_QUESTIONS[f.attribute];
-    if (template) qs.push({ id: `${p.id}:${f.attribute}`, subject, focus: f.attribute, text: template(p.title) });
+    if (template) qs.push({ id: `${p.id}:${f.attribute}`, subject, focus: f.attribute, text: template(t) });
   }
-  if (p.price) qs.push({ id: `${p.id}:price`, subject, focus: "price", text: `How much does the ${p.title} cost?` });
-  if (p.stock) qs.push({ id: `${p.id}:stock`, subject, focus: "stock", text: `Is the ${p.title} in stock right now?` });
+  if (p.price) qs.push({ id: `${p.id}:price`, subject, focus: "price", text: `How much does the ${t} cost?` });
+  if (p.stock) qs.push({ id: `${p.id}:stock`, subject, focus: "stock", text: `Is the ${t} in stock right now?` });
   return qs;
 }
 
