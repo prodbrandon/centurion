@@ -7,27 +7,20 @@ embedded = true
 
 [build]
 automatically_update_urls_on_dev = true
-include_config_on_deploy = true
 
 [webhooks]
 # Matches apiVersion in app/shopify.server.ts (ApiVersion.October26).
 api_version = "2026-10"
 
-  # app/uninstalled and app/scopes_update are left out until application_url points at a hosted app:
-  # relative URIs resolve against application_url, and Shopify rejects the placeholder domain.
-  # Restore them (uri = "/webhooks/app/uninstalled" and "/webhooks/app/scopes_update") once it does.
-
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/customers/data_request"
-  compliance_topics = [ "customers/data_request" ]
-
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/customers/redact"
-  compliance_topics = [ "customers/redact" ]
-
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/shop/redact"
-  compliance_topics = [ "shop/redact" ]
+  # All webhook subscriptions are left out until application_url points at a hosted app: relative URIs
+  # resolve against application_url, and Shopify rejects the placeholder (a Shopify domain).
+  # Once the app is hosted, restore these (the routes exist under app/routes/webhooks.*):
+  #   topics = [ "app/uninstalled" ]                       uri = "/webhooks/app/uninstalled"
+  #   topics = [ "app/scopes_update" ]                     uri = "/webhooks/app/scopes_update"
+  #   compliance_topics = [ "customers/data_request" ]     uri = "/webhooks/customers/data_request"
+  #   compliance_topics = [ "customers/redact" ]           uri = "/webhooks/customers/redact"
+  #   compliance_topics = [ "shop/redact" ]                uri = "/webhooks/shop/redact"
+  # The compliance webhooks are required before App Store distribution.
 
 [access_scopes]
 # read_orders: last 60 days of orders with their customer journey (AI Sales).
