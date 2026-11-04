@@ -118,6 +118,18 @@ export default function AiSales() {
       ) : (
         <Report view={state.view} />
       )}
+      {state.demo ? (
+        <>
+          <s-banner tone="info" heading="Sample report: Northpine Outfitters, a fictional store">
+            <s-paragraph>
+              Your store has no AI orders to show yet, so this is what the report looks like on sample data: {state.demo.report.orders}{" "}
+              orders over 90 days, run through the same engine. None of these numbers are your store’s. Your own report replaces this
+              as soon as AI assistants send you orders.
+            </s-paragraph>
+          </s-banner>
+          <Report view={state.demo} />
+        </>
+      ) : null}
     </s-page>
   );
 }

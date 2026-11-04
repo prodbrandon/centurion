@@ -93,6 +93,20 @@ export default function AnswerCheck() {
           </s-paragraph>
         </s-section>
       )}
+      {state.demo && !(fresh && fresh.contradictions > 0) ? (
+        <>
+          <s-banner tone="warning" heading="Sample: what a wrong answer looks like (fictional store, written answers)">
+            <s-paragraph>
+              {run
+                ? "Meta Muse Spark didn’t contradict your catalog in this run. Brand-new stores often get “I don’t know” because the model hasn’t learned about them yet."
+                : "You haven’t run a check yet."}{" "}
+              Below is the same check on Northpine Outfitters, a fictional store, using written sample answers labeled by the assistant
+              they stand in for. No model was called for this sample; the comparison with the catalog is the real check.
+            </s-paragraph>
+          </s-banner>
+          <Results run={state.demo.run} findings={state.demo.findings} />
+        </>
+      ) : null}
     </s-page>
   );
 }

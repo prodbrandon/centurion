@@ -48,6 +48,12 @@ import {
   type StoredFix
 } from "@centurion/core/server";
 
+// DEMO AI Sales report for Northpine Outfitters, a fictional store: the engine's output on sample orders
+// (apps/web/data/demo.json, kept in sync by packages/core/test/sync.test.ts). Shown, labeled, when a store
+// has no AI orders of its own yet, so a new merchant sees what the report looks like.
+import DEMO_AI_SALES_JSON from "../../web/data/demo.json";
+export const DEMO_AI_SALES_VIEW = DEMO_AI_SALES_JSON as unknown as AiSalesView;
+
 type AdminGraphql = (query: string, options?: { variables?: Record<string, unknown> }) => Promise<Response>;
 
 /**
@@ -70,9 +76,15 @@ function runnerWith(client: () => Promise<AdminGraphql>): GraphqlRunner {
 
 const runnerFor = (graphql: AdminGraphql) => runnerWith(async () => graphql);
 
-export type ReportState =
+export type ReportState = (
   | { configured: false }
-  | { configured: true; shop: string; view: AiSalesView | null; run: RunStatus | null; error?: string };
+  | { configured: true; shop: string; view: AiSalesView | null; run: RunStatus | null; error?: string }
+) & {
+  /** The labeled DEMO report, set only when this store has no AI orders to show yet. */
+  demo: AiSalesView | null;
+};
+
+const demoUnless = (view: AiSalesView | null | undefined) => (view && view.report.ai.orders > 0 ? null : DEMO_AI_SALES_VIEW);
 
 /** Plain-words reason for a database failure. Never includes the connection string. */
 function dbErrorMessage(error: unknown): string {
@@ -97,14 +109,14 @@ export function runErrorMessage(error: unknown): string {
 
 export async function latestReport(shop: string): Promise<ReportState> {
   const db = getDb();
-  if (!db) return { configured: false };
+  if (!db) return { configured: false, demo: DEMO_AI_SALES_VIEW };
   try {
     await failStaleRuns(db, { shopDomain: shop });
     const [view, run] = await Promise.all([loadLatestView(db, shop), latestReportRun(db, shop)]);
-    return { configured: true, shop, view, run };
+    return { configured: true, shop, view, run, demo: demoUnless(view) };
   } catch (error) {
     console.error("Loading the latest report failed", error);
-    return { configured: true, shop, view: null, run: null, error: dbErrorMessage(error) };
+    return { configured: true, shop, view: null, run: null, error: dbErrorMessage(error), demo: DEMO_AI_SALES_VIEW };
   }
 }
 
@@ -164,6 +176,11 @@ export type AnswerCheckState = {
   run: AnswerCheckRun | null;
   findings: AnswerResult[];
   error?: string;
+  /**
+   * Live mode only: the labeled fixture run on the fictional Northpine catalog, set when this store's latest
+   * run found no contradictions (or there is none yet), so the screen can show what a wrong answer looks like.
+   */
+  demo: { run: AnswerCheckRun; findings: AnswerResult[] } | null;
 };
 
 const withFindings = (run: AnswerCheckRun | null) => ({ run, findings: run ? findings(run) : [] });
@@ -172,19 +189,23 @@ const withFindings = (run: AnswerCheckRun | null) => ({ run, findings: run ? fin
  * Live (META_API_KEY set): the shop's latest stored run. Without a key: the labeled fixture run on the
  * fictional Northpine catalog, rebuilt on every load and never stored.
  */
+export async function demoAnswerCheck(): Promise<{ run: AnswerCheckRun; findings: AnswerResult[] }> {
+  const run = await runAnswerCheck({ catalog: DEMO_NORTHPINE_CATALOG, providers: createAnswerProviders({}) });
+  return { run, findings: findings(run) };
+}
+
 export async function answerCheckState(shop: string): Promise<AnswerCheckState> {
   const model = process.env.META_MODEL || META_DEFAULT_MODEL;
-  if (!isMetaLive(process.env)) {
-    const run = await runAnswerCheck({ catalog: DEMO_NORTHPINE_CATALOG, providers: createAnswerProviders({}) });
-    return { live: false, model, ...withFindings(run) };
-  }
+  if (!isMetaLive(process.env)) return { live: false, model, ...(await demoAnswerCheck()), demo: null };
+  const demoUnlessFound = async (run: AnswerCheckRun | null) => (run && run.contradictions > 0 ? null : await demoAnswerCheck());
   const db = getDb();
-  if (!db) return { live: true, model, ...withFindings(null) };
+  if (!db) return { live: true, model, ...withFindings(null), demo: await demoUnlessFound(null) };
   try {
-    return { live: true, model, ...withFindings(await loadLatestAnswerCheck(db, shop)) };
+    const run = await loadLatestAnswerCheck(db, shop);
+    return { live: true, model, ...withFindings(run), demo: await demoUnlessFound(run) };
   } catch (error) {
     console.error("Loading the latest answer check failed", error);
-    return { live: true, model, ...withFindings(null), error: dbErrorMessage(error) };
+    return { live: true, model, ...withFindings(null), error: dbErrorMessage(error), demo: await demoUnlessFound(null) };
   }
 }
 
