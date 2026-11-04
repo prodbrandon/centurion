@@ -18,6 +18,7 @@ import {
   fixtureProvider,
   loadLatestAnswerCheck,
   META_DEFAULT_MODEL,
+  META_MAX_COMPLETION_TOKENS,
   parseClaims,
   parseFacts,
   runAnswerCheck,
@@ -175,10 +176,20 @@ function mockFetch(respond: () => { status: number; body: unknown }) {
 }
 
 const KEY = "LLM|fake-key-do-not-leak";
-const llamaOk = (text: string) => ({ status: 200, body: { id: "x", completion_message: { role: "assistant", content: { type: "text", text }, stop_reason: "stop" } } });
+// The Meta Model API's chat completion shape (OpenAI-compatible), as returned for muse-spark-1.3.
+const metaOk = (text: string) => ({
+  status: 200,
+  body: {
+    id: "chatcmpl-x",
+    object: "chat.completion",
+    model: "muse-spark-1.3",
+    choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content: text, refusal: null } }],
+    usage: { completion_tokens: 206, prompt_tokens: 11, completion_tokens_details: { reasoning_tokens: 196 } }
+  }
+});
 
 test("without META_API_KEY every provider is a fixture and fetch is never called", async () => {
-  const { fetch, calls } = mockFetch(() => llamaOk("unused"));
+  const { fetch, calls } = mockFetch(() => metaOk("unused"));
   for (const env of [{}, { META_API_KEY: "" }, { META_API_KEY: "   " }]) {
     const providers = createAnswerProviders(env, { fetch });
     assert.deepEqual(providers.map(p => [p.id, p.mode]), [["meta", "fixture"], ["openai", "fixture"], ["perplexity", "fixture"], ["gemini", "fixture"]]);
@@ -187,15 +198,15 @@ test("without META_API_KEY every provider is a fixture and fetch is never called
   assert.equal(calls.length, 0);
 });
 
-test("with META_API_KEY the Meta provider is live and calls the Llama API", async () => {
-  const { fetch, calls } = mockFetch(() => llamaOk("The Ridgeback 45L weighs about 1.3 kg."));
+test("with META_API_KEY the Meta provider is live and calls the Meta Model API", async () => {
+  const { fetch, calls } = mockFetch(() => metaOk("The Ridgeback 45L weighs about 1.3 kg."));
   const providers = createAnswerProviders({ META_API_KEY: KEY }, { fetch });
   assert.deepEqual(providers.map(p => [p.id, p.mode, p.model]), [["meta", "live", META_DEFAULT_MODEL]]);
 
   const answer = await providers[0]!.ask(q("NP-RB45:weight"), CATALOG);
   assert.equal(answer, "The Ridgeback 45L weighs about 1.3 kg.");
   assert.equal(calls.length, 1);
-  assert.equal(calls[0]!.url, "https://api.llama.com/v1/chat/completions");
+  assert.equal(calls[0]!.url, "https://api.meta.ai/v1/chat/completions");
   assert.equal(calls[0]!.init.method, "POST");
   assert.equal((calls[0]!.init.headers as Record<string, string>).Authorization, `Bearer ${KEY}`);
   const body = JSON.parse(String(calls[0]!.init.body));
@@ -204,17 +215,29 @@ test("with META_API_KEY the Meta provider is live and calls the Llama API", asyn
   assert.match(body.messages[1].content, /How much does the Ridgeback 45L Pack weigh\?/);
 });
 
-test("META_MODEL and META_API_BASE_URL override the defaults, and OpenAI-style responses are read", async () => {
-  const { fetch, calls } = mockFetch(() => ({ status: 200, body: { choices: [{ message: { role: "assistant", content: "It costs $189." } }] } }));
-  const [meta] = createAnswerProviders({ META_API_KEY: KEY, META_MODEL: "Llama-3.3-70B-Instruct", META_API_BASE_URL: "https://api.llama.com/compat/v1/" }, { fetch });
+test("META_MODEL and META_API_BASE_URL override the defaults, and the older Llama API response shape is still read", async () => {
+  const { fetch, calls } = mockFetch(() => ({
+    status: 200,
+    body: { completion_message: { role: "assistant", content: { type: "text", text: "It costs $189." } } }
+  }));
+  const [meta] = createAnswerProviders({ META_API_KEY: KEY, META_MODEL: "muse-spark-1.2", META_API_BASE_URL: "https://api.example.test/v1/" }, { fetch });
   assert.equal(await meta!.ask(q("NP-RB45:price"), CATALOG), "It costs $189.");
-  assert.equal(calls[0]!.url, "https://api.llama.com/compat/v1/chat/completions");
-  assert.equal(JSON.parse(String(calls[0]!.init.body)).model, "Llama-3.3-70B-Instruct");
+  assert.equal(calls[0]!.url, "https://api.example.test/v1/chat/completions");
+  const body = JSON.parse(String(calls[0]!.init.body));
+  assert.equal(body.model, "muse-spark-1.2");
+  assert.equal(body.max_completion_tokens, META_MAX_COMPLETION_TOKENS, "room for the model to reason before answering");
+  assert.equal("temperature" in body, false);
+});
+
+test("an answer cut off by the token limit is a readable error, not an empty answer", async () => {
+  const { fetch } = mockFetch(() => ({ status: 200, body: { choices: [{ finish_reason: "length", message: { role: "assistant", content: "" } }] } }));
+  const [meta] = createAnswerProviders({ META_API_KEY: KEY }, { fetch });
+  await assert.rejects(meta!.ask(q("NP-TH2:price"), CATALOG), /ran out of tokens before answering/);
 });
 
 test("a model error marks that answer as an error and the run still finishes; the key never appears", async () => {
   let n = 0;
-  const { fetch } = mockFetch(() => (++n === 2 ? { status: 500, body: { error: { message: "upstream overloaded" } } } : llamaOk("It costs $229.")));
+  const { fetch } = mockFetch(() => (++n === 2 ? { status: 500, body: { error: { message: "upstream overloaded" } } } : metaOk("It costs $229.")));
   const providers = createAnswerProviders({ META_API_KEY: KEY }, { fetch });
   const qs = [q("NP-TH2:price"), q("NP-RB45:price"), q("NP-CM2:price")];
   const run = await runAnswerCheck({ catalog: CATALOG, providers, questions: qs, concurrency: 1 });
@@ -237,7 +260,7 @@ test("network failures, timeouts and 401s become readable errors", async () => {
   }) as unknown as typeof globalThis.fetch;
   const [offline] = createAnswerProviders({ META_API_KEY: KEY }, { fetch: throwing });
   const run = await runAnswerCheck({ catalog: CATALOG, providers: [offline!], questions: [q("NP-TH2:price")] });
-  assert.equal(run.results[0]!.error, "The Llama API could not be reached.");
+  assert.equal(run.results[0]!.error, "The Meta Model API could not be reached.");
 
   const { fetch } = mockFetch(() => ({ status: 401, body: { detail: "invalid api key" } }));
   const [unauth] = createAnswerProviders({ META_API_KEY: KEY }, { fetch });
@@ -342,7 +365,7 @@ test("an Answer Check run round-trips through Postgres and is removed with the s
 });
 
 test("a provider that is neither live nor fixture is never reported as live", async () => {
-  const live: AnswerProvider = { id: "meta", label: "Meta Llama", model: "m", mode: "live", ask: async () => "It costs $229." };
+  const live: AnswerProvider = { id: "meta", label: "Meta Muse Spark", model: "m", mode: "live", ask: async () => "It costs $229." };
   const run = await runAnswerCheck({ catalog: CATALOG, providers: [live, fixtureProvider("gemini")], questions: [q("NP-TH2:price")] });
   assert.equal(run.mode, "fixture");
 });

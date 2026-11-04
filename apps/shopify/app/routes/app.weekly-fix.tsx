@@ -57,7 +57,7 @@ function Why({ suggestion }: { suggestion: FixSuggestion }) {
       <s-text color="subdued">
         AI revenue for this product: {money(suggestion.evidence.aiRevenue)} in {suggestion.evidence.periodDays} days. Holdouts:{" "}
         {suggestion.holdouts.map(h => `${h.title} (${money(h.aiRevenue)})`).join(", ") || "none"}. Chosen by a fixed rule; the wording is{" "}
-        {suggestion.explanationBy === "meta" ? "by Meta Llama" : "from a template"}.
+        {suggestion.explanationBy === "meta" ? "by Meta Muse Spark" : "from a template"}.
       </s-text>
     </s-stack>
   );

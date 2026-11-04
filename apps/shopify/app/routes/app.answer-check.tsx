@@ -59,7 +59,7 @@ export default function AnswerCheck() {
         {...(running ? { loading: true } : {})}
         {...(!state.live ? { disabled: true } : {})}
       >
-        Ask Meta Llama now
+        Ask Meta Muse Spark now
       </s-button>
 
       {state.live ? null : (
@@ -67,7 +67,7 @@ export default function AnswerCheck() {
           <s-paragraph>
             No META_API_KEY is set, so no model was called. These answers are written samples about Northpine Outfitters, a fictional
             store, labeled by the assistant they stand in for. The comparison with the catalog is the real check. Add META_API_KEY to
-            ask Meta Llama about your own products.
+            ask Meta Muse Spark about your own products.
           </s-paragraph>
         </s-banner>
       )}
@@ -87,7 +87,7 @@ export default function AnswerCheck() {
       ) : (
         <s-section heading="No check yet">
           <s-paragraph>
-            Ask Meta Llama ({state.model}) the questions shoppers ask about your best sellers. Every answer is compared with your
+            Ask Meta Muse Spark ({state.model}) the questions shoppers ask about your best sellers. Every answer is compared with your
             catalog by fixed rules, not by a model, and each wrong answer shows the fact and source it contradicts. This reads your
             products and changes nothing in your store.
           </s-paragraph>

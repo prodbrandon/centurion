@@ -52,7 +52,7 @@ export default async function WeeklyFixPage() {
       </section>
 
       <span className="preview">
-        Demo store · the rule is real; the answers it reacts to are {answerCheck.mode === "fixture" ? "labeled fixture answers" : "live Meta Llama answers"} about
+        Demo store · the rule is real; the answers it reacts to are {answerCheck.mode === "fixture" ? "labeled fixture answers" : "live Meta Muse Spark answers"} about
         the fictional Northpine catalog. Apply and undo change a copy in your browser, never a real store.
       </span>
 
@@ -77,7 +77,7 @@ export default async function WeeklyFixPage() {
         </div>
         <p className="sub" style={{ marginTop: 12 }}>
           {suggestion.explanation}{" "}
-          <span className="muted">({suggestion.explanationBy === "meta" ? "worded by Meta Llama" : "template wording"})</span>
+          <span className="muted">({suggestion.explanationBy === "meta" ? "worded by Meta Muse Spark" : "template wording"})</span>
         </p>
       </section>
 

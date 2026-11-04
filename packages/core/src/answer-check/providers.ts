@@ -1,5 +1,5 @@
 // Model providers for Answer Check. Answers come from official model APIs only, never from scraping
-// chat interfaces. Meta (Llama API) is the primary provider and goes live as soon as META_API_KEY is set,
+// chat interfaces. Meta (the Meta Model API, Muse Spark) is the primary provider and goes live as soon as META_API_KEY is set,
 // with no code change. Without a key, and for providers whose live clients are not built yet, answers
 // come from DEMO fixtures that are labeled as such on every screen.
 import { DEMO_FIXTURE_ANSWERS } from "./demo-fixtures.ts";
@@ -28,10 +28,14 @@ export class ProviderError extends Error {
   }
 }
 
-// Llama API (https://api.llama.com). Model and base URL can be changed without a code change.
-export const META_DEFAULT_BASE_URL = "https://api.llama.com/v1";
-export const META_DEFAULT_MODEL = "Llama-4-Maverick-17B-128E-Instruct-FP8";
-const META_TIMEOUT_MS = 30_000;
+// Meta Model API (https://api.meta.ai, OpenAI-compatible chat completions). Model and base URL can be changed
+// without a code change (META_MODEL, META_API_BASE_URL); the older Llama API response shape is also read.
+export const META_DEFAULT_BASE_URL = "https://api.meta.ai/v1";
+export const META_DEFAULT_MODEL = "muse-spark-1.3";
+export const META_LABEL = "Meta Muse Spark";
+/** Muse Spark reasons before it answers, and reasoning counts toward this limit, so it is generous. */
+export const META_MAX_COMPLETION_TOKENS = 4000;
+const META_TIMEOUT_MS = 60_000;
 
 export const SYSTEM_PROMPT =
   "You are a helpful shopping assistant. A shopper is asking about an online store and its products. " +
@@ -42,19 +46,21 @@ export function userPrompt(question: Question, catalog: Catalog): string {
   return `Store: ${catalog.store.name} (${catalog.store.domain})\nQuestion: ${question.text}`;
 }
 
-/** Reads the assistant text from a Llama API response, or from an OpenAI-compatible one. */
+/** Reads the assistant text from a Meta Model API (OpenAI-compatible) response, or from the older Llama API shape. */
 export function readMetaAnswer(body: unknown): string {
   const b = body as {
     completion_message?: { content?: string | { type?: string; text?: string } | { type?: string; text?: string }[] };
-    choices?: { message?: { content?: string } }[];
+    choices?: { message?: { content?: string | null }; finish_reason?: string }[];
   };
   const content = b?.completion_message?.content;
   if (typeof content === "string") return content;
   if (Array.isArray(content)) return content.map(c => c?.text ?? "").join("");
   if (content && typeof content.text === "string") return content.text;
-  const openai = b?.choices?.[0]?.message?.content;
-  if (typeof openai === "string") return openai;
-  throw new ProviderError("The Llama API response had no answer text.");
+  const choice = b?.choices?.[0];
+  const openai = choice?.message?.content;
+  if (typeof openai === "string" && openai.trim()) return openai;
+  if (choice?.finish_reason === "length") throw new ProviderError("The Meta Model API ran out of tokens before answering.");
+  throw new ProviderError("The Meta Model API response had no answer text.");
 }
 
 function errorDetail(body: unknown): string {
@@ -63,14 +69,14 @@ function errorDetail(body: unknown): string {
   return typeof raw === "string" ? `: ${raw.slice(0, 200)}` : "";
 }
 
-/** The live Llama API client. Never logs or returns the key. */
+/** The live Meta Model API client. Never logs or returns the key. */
 export function metaLiveProvider(opts: { apiKey: string; model?: string; baseUrl?: string; fetch?: typeof fetch }): AnswerProvider {
   const doFetch = opts.fetch ?? globalThis.fetch;
   const model = opts.model || META_DEFAULT_MODEL;
   const url = `${(opts.baseUrl || META_DEFAULT_BASE_URL).replace(/\/+$/, "")}/chat/completions`;
   return {
     id: "meta",
-    label: "Meta Llama",
+    label: META_LABEL,
     model,
     mode: "live",
     async ask(question, catalog) {
@@ -85,14 +91,13 @@ export function metaLiveProvider(opts: { apiKey: string; model?: string; baseUrl
               { role: "system", content: SYSTEM_PROMPT },
               { role: "user", content: userPrompt(question, catalog) }
             ],
-            temperature: 0,
-            max_completion_tokens: 300
+            max_completion_tokens: META_MAX_COMPLETION_TOKENS
           }),
           signal: AbortSignal.timeout(META_TIMEOUT_MS)
         });
       } catch (error) {
         const reason = error instanceof Error && error.name === "TimeoutError" ? "timed out" : "could not be reached";
-        throw new ProviderError(`The Llama API ${reason}.`);
+        throw new ProviderError(`The Meta Model API ${reason}.`);
       }
       let body: unknown = null;
       try {
@@ -102,7 +107,7 @@ export function metaLiveProvider(opts: { apiKey: string; model?: string; baseUrl
       }
       if (!res.ok) {
         const hint = res.status === 401 || res.status === 403 ? " Check META_API_KEY." : res.status === 429 ? " Rate limited or out of credits." : "";
-        throw new ProviderError(`The Llama API returned ${res.status}${errorDetail(body)}.${hint}`, res.status);
+        throw new ProviderError(`The Meta Model API returned ${res.status}${errorDetail(body)}.${hint}`, res.status);
       }
       return readMetaAnswer(body).trim();
     }
@@ -110,7 +115,7 @@ export function metaLiveProvider(opts: { apiKey: string; model?: string; baseUrl
 }
 
 const FIXTURE_INFO: Record<ProviderId, { label: string; model: string }> = {
-  meta: { label: "Meta Llama", model: META_DEFAULT_MODEL },
+  meta: { label: META_LABEL, model: META_DEFAULT_MODEL },
   openai: { label: "ChatGPT", model: "gpt (fixture)" },
   perplexity: { label: "Perplexity", model: "sonar (fixture)" },
   gemini: { label: "Gemini", model: "gemini (fixture)" }

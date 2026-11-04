@@ -11,6 +11,8 @@ export {
   readMetaAnswer,
   META_DEFAULT_BASE_URL,
   META_DEFAULT_MODEL,
+  META_LABEL,
+  META_MAX_COMPLETION_TOKENS,
   NoFixtureError,
   ProviderError,
   type AnswerProvider,

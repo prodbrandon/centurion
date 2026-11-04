@@ -4,7 +4,7 @@
 // explanation (explainFix), and the template text is used whenever it can't.
 import type { GraphqlRunner } from "../../attribution/src/shopify.ts";
 import type { AnswerCheckRun, Catalog, Issue } from "./answer-check/types.ts";
-import { META_DEFAULT_BASE_URL, META_DEFAULT_MODEL, readMetaAnswer, type ProviderEnv } from "./answer-check/providers.ts";
+import { META_DEFAULT_BASE_URL, META_DEFAULT_MODEL, META_MAX_COMPLETION_TOKENS, readMetaAnswer, type ProviderEnv } from "./answer-check/providers.ts";
 import type { AiSalesView } from "./types.ts";
 
 /** The AI Sales numbers a fix is chosen from: the report period and AI revenue per product. */
@@ -119,7 +119,7 @@ export function templateExplanation(s: FixSuggestion): string {
 }
 
 /**
- * Asks Meta Llama to reword the explanation in plain words. The suggestion itself (product, change, numbers)
+ * Asks Meta Muse Spark to reword the explanation in plain words. The suggestion itself (product, change, numbers)
  * is fixed before this runs and is never changed. Without META_API_KEY, or on any error, the template stays.
  */
 export async function explainFix(s: FixSuggestion, env: ProviderEnv = process.env, opts: { fetch?: typeof fetch } = {}): Promise<FixSuggestion> {
@@ -131,8 +131,7 @@ export async function explainFix(s: FixSuggestion, env: ProviderEnv = process.en
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: env.META_MODEL || META_DEFAULT_MODEL,
-        temperature: 0,
-        max_completion_tokens: 200,
+        max_completion_tokens: META_MAX_COMPLETION_TOKENS,
         messages: [
           {
             role: "system",
@@ -142,7 +141,7 @@ export async function explainFix(s: FixSuggestion, env: ProviderEnv = process.en
           { role: "user", content: s.explanation }
         ]
       }),
-      signal: AbortSignal.timeout(20_000)
+      signal: AbortSignal.timeout(60_000)
     });
     if (!res.ok) return s;
     const text = readMetaAnswer(await res.json()).trim();

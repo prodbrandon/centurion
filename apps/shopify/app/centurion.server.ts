@@ -158,7 +158,7 @@ export async function startReport(input: {
 // ---------------------------------------------------------------------------------------------
 
 export type AnswerCheckState = {
-  /** True when META_API_KEY is set, so runs ask Meta Llama about this store's own catalog. */
+  /** True when META_API_KEY is set, so runs ask Meta Muse Spark about this store's own catalog. */
   live: boolean;
   model: string;
   run: AnswerCheckRun | null;
@@ -188,9 +188,9 @@ export async function answerCheckState(shop: string): Promise<AnswerCheckState> 
   }
 }
 
-/** Asks Meta Llama about the store's products (AI best sellers first), compares with the catalog and stores the run. */
+/** Asks Meta Muse Spark about the store's products (AI best sellers first), compares with the catalog and stores the run. */
 export async function runLiveAnswerCheck(input: { shop: string; graphql: AdminGraphql }) {
-  if (!isMetaLive(process.env)) throw new Error("Set META_API_KEY to ask Meta Llama about your store.");
+  if (!isMetaLive(process.env)) throw new Error("Set META_API_KEY to ask Meta Muse Spark about your store.");
   const db = getDb();
   const report = db ? await loadLatestView(db, input.shop).catch(() => null) : null;
   const catalog = await fetchShopCatalog(runnerFor(input.graphql), { bestSellers: report?.report.top_products.map(p => p.title) });

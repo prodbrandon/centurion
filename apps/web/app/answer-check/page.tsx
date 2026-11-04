@@ -11,7 +11,7 @@ import { shortDate } from "@/lib/data";
 export const metadata = { title: "Answer Check · Centurion" };
 
 // Rebuilt at most hourly, so a META_API_KEY added to the deployment takes effect without a rebuild
-// and live runs don't call Llama on every visit.
+// and live runs don't call the model on every visit.
 export const revalidate = 3600;
 
 const SEVERITY: Record<Severity, { cls: string; label: string }> = {
@@ -28,7 +28,7 @@ const STATUS: Record<AnswerStatus, { cls: string; label: string }> = {
 
 /**
  * Runs the real Answer Check pipeline on the Northpine demo catalog. Without META_API_KEY every
- * provider returns labeled fixture answers and no model is called; with it, Meta Llama answers live.
+ * provider returns labeled fixture answers and no model is called; with it, Meta Muse Spark answers live.
  */
 export default async function AnswerCheckPage() {
   const run = await runAnswerCheck({ catalog: DEMO_NORTHPINE_CATALOG, providers: createAnswerProviders(process.env) });

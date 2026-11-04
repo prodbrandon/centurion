@@ -10,7 +10,7 @@ All classification and storage goes through `@centurion/core` (`packages/core`),
 | --- | --- | --- |
 | AI Sales | `/app` | Live. **Run report** starts a background run that fetches the last 60 days of orders (retrying throttled pages), classifies them and stores the run in Postgres. The screen shows the run's progress and renders the result when it is done. |
 | Checkout Test | `/app/checkout-test` | The store's latest checkout agent run from `checkout_runs`, run with `packages/checkout-test`. Until the store is tested it shows the latest test-page run, labeled as such. |
-| Answer Check | `/app/answer-check` | Live with `META_API_KEY`: **Ask Meta Llama now** asks Llama about the store's products (AI best sellers first), compares each answer with the catalog by fixed rules and stores the run. Without a key it shows a fixture run on the Northpine demo catalog, labeled as sample answers. |
+| Answer Check | `/app/answer-check` | Live with `META_API_KEY`: **Ask Meta Muse Spark now** asks Meta's model about the store's products (AI best sellers first), compares each answer with the catalog by fixed rules and stores the run. Without a key it shows a fixture run on the Northpine demo catalog, labeled as sample answers. |
 | Weekly Fix | `/app/weekly-fix` | Chooses this store's fix from its stored AI Sales report, its latest live Answer Check and its catalog, by a fixed rule. Apply and undo use the Admin API (`productUpdate`) and record before/after and holdouts in `weekly_fixes`; they stay disabled until `CENTURION_STORE_WRITES=on` is set and `write_products` is added to `scopes` in `shopify.app.toml` (then deploy the config and re-approve). With no fix for the store, it shows the rule's result on the demo store, labeled. |
 
 ## Webhooks
@@ -73,7 +73,7 @@ On start the container runs `prisma generate && prisma migrate deploy` (prepare 
 
 ## Answer Check setup
 
-- `META_API_KEY`: a Llama API key. When it is set, Answer Check calls Meta Llama live; nothing else changes. Optional `META_MODEL` (default `Llama-4-Maverick-17B-128E-Instruct-FP8`) and `META_API_BASE_URL` (default `https://api.llama.com/v1`).
+- `META_API_KEY`: a Meta Model API key (from the Meta Model API dashboard, keys start with `LLM_`). When it is set, Answer Check calls Meta live; nothing else changes. Optional `META_MODEL` (default `muse-spark-1.3`) and `META_API_BASE_URL` (default `https://api.meta.ai/v1`).
 - Banned and approved claims per product come from the product metafields `centurion.prohibited_claims` and `centurion.approved_claims` (a list of single-line text, or comma-separated text). Spec facts come from `centurion.facts`, a JSON metafield such as `{"weight": "1.3 kg", "material": "100% merino wool"}`. Prices and stock come from the product itself.
 - Apply `../../supabase/migrations/20261103010000_answer_checks.sql`. Live runs are stored in `answer_checks`; fixture runs are never stored.
 
