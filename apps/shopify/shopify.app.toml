@@ -13,13 +13,9 @@ include_config_on_deploy = true
 # Matches apiVersion in app/shopify.server.ts (ApiVersion.October26).
 api_version = "2026-10"
 
-  [[webhooks.subscriptions]]
-  topics = [ "app/uninstalled" ]
-  uri = "/webhooks/app/uninstalled"
-
-  [[webhooks.subscriptions]]
-  topics = [ "app/scopes_update" ]
-  uri = "/webhooks/app/scopes_update"
+  # app/uninstalled and app/scopes_update are left out until application_url points at a hosted app:
+  # relative URIs resolve against application_url, and Shopify rejects the placeholder domain.
+  # Restore them (uri = "/webhooks/app/uninstalled" and "/webhooks/app/scopes_update") once it does.
 
   [[webhooks.subscriptions]]
   uri = "/webhooks/customers/data_request"
