@@ -2,7 +2,7 @@
 import { strict as assert } from "node:assert";
 import { mkdtemp, readdir, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { test } from "node:test";
 import { guardBlocks, runCheckoutAgent } from "../src/agent.ts";
 import { startTestStore, type TestStoreOptions } from "../src/test-store.ts";
@@ -45,7 +45,7 @@ test("a clean store: every step passes, checkout is reached, and a video is save
   assert.ok(!hits.some(h => h.endsWith("/pay")), "never submits payment");
   assert.ok(result.videoPath?.endsWith(".webm"));
   assert.ok((await stat(result.videoPath!)).size > 0);
-  assert.deepEqual(await readdir(videoDir!), [result.videoPath!.split("/").pop()]);
+  assert.deepEqual(await readdir(videoDir!), [basename(result.videoPath!)]);
 });
 
 test("the step log records the failing step and stops there", async () => {
