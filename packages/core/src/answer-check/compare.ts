@@ -312,7 +312,26 @@ function dedupe(issues: Issue[]): Issue[] {
   });
 }
 
-const NO_ANSWER = /\b(i (don'?t|do not) (have|know)|i'?m not (sure|aware)|i (couldn'?t|could not|can'?t|cannot) find|no (information|details) (about|on)|not familiar with)\b/i;
+const NO_ANSWER = /\b(i (don['’]?t|do not) (have|know)|i['’]?m not (sure|aware)|i['’]?m unable to|i (couldn['’]?t|could not|can['’]?t|cannot) (find|confirm|verify)|no (information|details) (about|on)|not familiar with)\b/i;
+
+/**
+ * The answer minus the parts where the model declines to answer. "I don't know whether it's waterproof"
+ * mentions "waterproof" without claiming it, so declining clauses are left out before the contradiction
+ * checks. Real claims around them still count: in "I don't know the weight, but it's waterproof" only the
+ * first clause is dropped.
+ */
+export function withoutDeclines(text: string): string {
+  return text
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map(sentence =>
+      sentence
+        .split(/,?\s+(?=(?:but|however|although|though)\b)/i)
+        .filter(clause => !NO_ANSWER.test(clause))
+        .join(" ")
+    )
+    .filter(s => s.trim())
+    .join(" ");
+}
 
 export interface Comparison {
   status: Exclude<AnswerStatus, "error">;
@@ -322,13 +341,14 @@ export interface Comparison {
 /** Checks one answer to `question` against what `catalog` says about the question's subject. */
 export function compareAnswer(answer: string, question: Question, catalog: Catalog): Comparison {
   const text = answer.trim();
+  const claims = withoutDeclines(text);
   let issues: Issue[] = [];
   if (question.subject.kind === "product") {
     const product = catalog.products.find(p => p.id === question.subject.id);
-    if (product) issues = productIssues(text, question, product);
+    if (product) issues = productIssues(claims, question, product);
   } else {
     const policy = catalog.policies.find(p => p.id === question.subject.id);
-    if (policy) issues = policyIssues(text, policy);
+    if (policy) issues = policyIssues(claims, policy);
   }
   if (issues.length > 0) return { status: "contradiction", issues };
   if (!text || NO_ANSWER.test(text)) return { status: "no_answer", issues: [] };

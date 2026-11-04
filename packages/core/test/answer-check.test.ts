@@ -101,6 +101,30 @@ test("an 'I don't know' answer is reported as no answer, not as a match", () => 
   assert.equal(compareAnswer("I don't have information about that product.", q("NP-CM2:care"), CATALOG).status, "no_answer");
 });
 
+test("declining to answer is no answer, even when the decline names a banned claim or stock phrase", () => {
+  // Real Muse Spark answers from a live run; both were wrongly flagged as contradictions.
+  const waterproof = compareAnswer(
+    "I don't know whether the Trailhead 2 Down Jacket is waterproof. I don't have its fabric, treatment, or rating information from Northpine Outfitters, so check the product details page for confirmation.",
+    q("NP-TH2:water_resistance"),
+    CATALOG
+  );
+  assert.deepEqual([waterproof.status, waterproof.issues.length], ["no_answer", 0]);
+  const stock = compareAnswer(
+    "I don’t know if the Cedar Merino Base Layer is in stock right now. I don't have access to live inventory for Northpine Outfitters, so check the product page on northpine.example for current availability.",
+    q("NP-CM2:stock"),
+    CATALOG
+  );
+  assert.deepEqual([stock.status, stock.issues.length], ["no_answer", 0]);
+});
+
+test("a hedge does not hide a real claim made alongside it", () => {
+  const mixed = compareAnswer("I don't know its exact weight, but it is fully waterproof.", q("NP-TH2:water_resistance"), CATALOG);
+  assert.equal(mixed.status, "contradiction");
+  assert.equal(mixed.issues[0]!.kind, "banned_claim");
+  const nextSentence = compareAnswer("I'm not sure about the fill. It's waterproof though.", q("NP-TH2:water_resistance"), CATALOG);
+  assert.equal(nextSentence.status, "contradiction");
+});
+
 test("quantity extraction normalizes units and reads ranges", () => {
   const qs = extractQuantities("Weighs 0.9 kg, holds 45L, fits 16 to 21 inches, 2-year warranty, -12 °C, $189, 200gsm, 800-fill, 12 in stock, 2 in 1");
   const by = (d: string) => qs.filter(x => x.dimension === d).map(x => Math.round(x.value * 10) / 10);
