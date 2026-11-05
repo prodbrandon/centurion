@@ -1,7 +1,9 @@
+import { getShopifyToken, normalizeShopDomain } from "../../core/src/shopify-auth.ts";
 import { OrderSchema, type Order, type Visit } from "./types.ts";
 
 // Read-only fetch of recent orders with their customer journey from the Shopify Admin GraphQL API.
-// Needs a token with the read_orders scope. In the Shopify app this token comes from OAuth.
+// Needs the read_orders scope. The Shopify app passes its own authenticated client to fetchOrdersWith;
+// fetchOrders gets tokens through the client credentials grant (see packages/core/src/shopify-auth.ts).
 
 const QUERY = `
 query Orders($cursor: String, $query: String) {
@@ -55,18 +57,32 @@ export type GraphqlRunner = (
   variables: Record<string, unknown>
 ) => Promise<{ data?: any; errors?: { message: string }[] }>;
 
-/** Direct fetch with a raw access token (CLI use). */
-export async function fetchOrders(opts: { shop: string; token: string; days: number; apiVersion?: string }): Promise<Order[]> {
-  const version = opts.apiVersion ?? process.env.SHOPIFY_API_VERSION ?? "2026-07";
-  const url = `https://${opts.shop}/admin/api/${version}/graphql.json`;
+export interface FetchOrdersOptions {
+  /** Store handle or myshopify.com domain. Defaults to SHOPIFY_SHOP. */
+  shop?: string;
+  days: number;
+  apiVersion?: string;
+  /** Returns an Admin API access token. Defaults to getShopifyToken (client credentials grant). */
+  getToken?: (shop: string) => Promise<string>;
+}
+
+/** Direct fetch against the Admin API (CLI use). A token is requested per page, so long runs survive a refresh. */
+export async function fetchOrders(opts: FetchOrdersOptions): Promise<Order[]> {
+  const shop = opts.shop ?? process.env.SHOPIFY_SHOP;
+  if (!shop) throw new Error("Set SHOPIFY_SHOP or pass a shop.");
+  const domain = normalizeShopDomain(shop);
+  const getToken = opts.getToken ?? (s => getShopifyToken({ shop: s }));
+  const version = opts.apiVersion ?? process.env.SHOPIFY_API_VERSION ?? "2026-10";
+  const url = `https://${domain}/admin/api/${version}/graphql.json`;
   const run: GraphqlRunner = async (query, variables) => {
     const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": opts.token },
+      headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": await getToken(domain) },
       body: JSON.stringify({ query, variables }),
       signal: AbortSignal.timeout(30_000)
     });
-    if (res.status === 401 || res.status === 403) throw new Error("Shopify rejected the token. It needs the read_orders scope.");
+    if (res.status === 401) throw new Error(`Shopify returned HTTP 401 for ${domain}. The access token was not accepted.`);
+    if (res.status === 403) throw new Error(`Shopify returned HTTP 403 for ${domain}. The app needs the read_orders scope on this store.`);
     if (res.status === 429) throw new Error("Shopify rate limit hit. Wait a minute and retry.");
     if (!res.ok) throw new Error(`Shopify returned HTTP ${res.status}.`);
     return (await res.json()) as { data?: any; errors?: { message: string }[] };

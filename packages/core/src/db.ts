@@ -8,6 +8,9 @@ import postgres from "postgres";
 import { classifyOrders } from "../../attribution/src/classify.ts";
 import type { Attribution, Order, SignatureFile } from "../../attribution/src/types.ts";
 import { currentSignatures } from "./signatures.ts";
+import type { AnswerCheckRun } from "./answer-check/types.ts";
+import type { CheckoutRunResult } from "./checkout-types.ts";
+import type { AppliedFix, FixBaseline, FixSuggestion, SalesSince } from "./weekly-fix.ts";
 import type { AiSalesView } from "./types.ts";
 import { assembleView, canonicalOrders } from "./view.ts";
 
@@ -80,6 +83,124 @@ async function upsertShop(q: Queryable, shop: ShopInfo): Promise<string> {
   return row!.id;
 }
 
+/** A report for this shop is already running. `runId` is that run. */
+export class RunInProgressError extends Error {
+  constructor(readonly runId: string) {
+    super("A report is already running for this store.");
+    this.name = "RunInProgressError";
+  }
+}
+
+/**
+ * Creates a report run in status 'running' and returns its id. The orders are stored later by completeReportRun.
+ * Throws RunInProgressError when the shop already has a running report (one at a time per shop).
+ */
+export async function createReportRun(
+  db: Queryable,
+  input: { shop: ShopInfo; days: number; file?: SignatureFile; now?: Date }
+): Promise<{ runId: string; shopId: string }> {
+  const file = input.file ?? currentSignatures;
+  const now = input.now ?? new Date();
+  const shopId = await upsertShop(db, input.shop);
+  await db.query(
+    `insert into signature_versions (version, file, created_by) values ($1, $2::text::jsonb, 'engine') on conflict (version) do nothing`,
+    [file.version, json(file)]
+  );
+  // "on conflict do nothing" against the one-running-report-per-shop index, so a second press never errors mid-transaction.
+  const [run] = await db.query<{ id: string }>(
+    `insert into runs (shop_id, kind, signature_version, period_start, period_end, started_at, heartbeat_at)
+     values ($1, 'report', $2, $3::date, $4::date, $5, $5)
+     on conflict (shop_id) where kind = 'report' and status = 'running' do nothing
+     returning id`,
+    [shopId, file.version, isoDate(new Date(now.getTime() - input.days * 864e5)), isoDate(now), now.toISOString()]
+  );
+  if (!run) {
+    const [current] = await db.query<{ id: string }>(`select id from runs where shop_id = $1 and kind = 'report' and status = 'running'`, [shopId]);
+    throw new RunInProgressError(current?.id ?? "");
+  }
+  return { runId: run.id, shopId };
+}
+
+/**
+ * Classifies the orders and stores them with their attributions under an existing run, then marks it
+ * 'done', all in one transaction. Returns the view. Throws (leaving the run untouched) if storing fails.
+ */
+export async function completeReportRun(
+  db: Db,
+  input: { runId: string; shopId: string; shop: ShopInfo; orders: Order[]; file?: SignatureFile; now?: Date }
+): Promise<AiSalesView> {
+  const file = input.file ?? currentSignatures;
+  const now = input.now ?? new Date();
+  const orders = canonicalOrders(input.orders);
+  const { runId, shopId } = input;
+  return db.transaction(async tx => {
+    for (const part of chunks(orders)) {
+      await tx.query(
+        `insert into orders (shop_id, id, name, created_at, total, currency, channel, first_visit, last_visit, line_items, fetched_at)
+         select $1::uuid, r.id, r.name, r.created_at, r.total, r.currency, r.channel, r.first_visit, r.last_visit, r.line_items, now()
+         from jsonb_to_recordset($2::text::jsonb) as r(id text, name text, created_at timestamptz, total numeric, currency text,
+           channel text, first_visit jsonb, last_visit jsonb, line_items jsonb)
+         on conflict (shop_id, id) do update set
+           name = excluded.name, created_at = excluded.created_at, total = excluded.total, currency = excluded.currency,
+           channel = excluded.channel, first_visit = excluded.first_visit, last_visit = excluded.last_visit,
+           line_items = excluded.line_items, fetched_at = excluded.fetched_at`,
+        [
+          shopId,
+          json(
+            part.map(o => ({
+              id: o.id,
+              name: o.name,
+              created_at: o.createdAt,
+              total: o.total,
+              currency: o.currency,
+              channel: o.channel ?? null,
+              first_visit: o.firstVisit ?? null,
+              last_visit: o.lastVisit ?? null,
+              line_items: o.lineItems
+            }))
+          )
+        ]
+      );
+    }
+
+    // Store exactly the attributions the view counts.
+    const attributions = classifyOrders(orders, file.signatures);
+    const built = assembleView({
+      orders,
+      attributions,
+      file,
+      store: { name: input.shop.name ?? input.shop.domain, domain: input.shop.domain },
+      generatedAt: now.toISOString()
+    });
+    for (const part of chunks(attributions)) {
+      await tx.query(
+        `insert into attributions (run_id, shop_id, order_id, is_ai, source, touch, evidence, proof)
+         select $1::uuid, $2::uuid, r.order_id, r.is_ai, r.source, r.touch, r.evidence,
+           array(select jsonb_array_elements_text(r.proof))
+         from jsonb_to_recordset($3::text::jsonb) as r(order_id text, is_ai boolean, source text, touch text, evidence text, proof jsonb)`,
+        [
+          runId,
+          shopId,
+          json(part.map(a => ({ order_id: a.orderId, is_ai: a.isAI, source: a.source, touch: a.touch, evidence: a.evidence, proof: a.proof })))
+        ]
+      );
+    }
+    // Only a run that is still 'running' can finish; one already failed (for example as stale) stays failed.
+    const updated = await tx.query(`update runs set status = 'done', summary = $2::text::jsonb, finished_at = $3 where id = $1 and status = 'running' returning id`, [
+      runId,
+      json(built.report),
+      now.toISOString()
+    ]);
+    if (updated.length === 0) throw new Error("This report run was already marked failed, so its results were not saved.");
+    return built;
+  });
+}
+
+/** Marks a run 'failed' with the error (trimmed to 1,000 characters). */
+export async function failReportRun(db: Queryable, runId: string, error: string): Promise<void> {
+  await db.query(`update runs set status = 'failed', error = $2, finished_at = now() where id = $1 and status = 'running'`, [runId, error.slice(0, 1000)]);
+}
+
 /**
  * Classifies the orders, stores them with their attributions as one report run, and returns
  * the view. If storing fails, the run is kept with status 'failed' and the error.
@@ -88,88 +209,63 @@ export async function saveReportRun(
   db: Db,
   input: { shop: ShopInfo; orders: Order[]; days: number; file?: SignatureFile; now?: Date }
 ): Promise<{ runId: string; view: AiSalesView }> {
-  const file = input.file ?? currentSignatures;
-  const now = input.now ?? new Date();
-  const orders = canonicalOrders(input.orders);
-
-  const shopId = await upsertShop(db, input.shop);
-  await db.query(
-    `insert into signature_versions (version, file, created_by) values ($1, $2::text::jsonb, 'engine') on conflict (version) do nothing`,
-    [file.version, json(file)]
-  );
-  const [run] = await db.query<{ id: string }>(
-    `insert into runs (shop_id, kind, signature_version, period_start, period_end)
-     values ($1, 'report', $2, $3::date, $4::date) returning id`,
-    [shopId, file.version, isoDate(new Date(now.getTime() - input.days * 864e5)), isoDate(now)]
-  );
-  const runId = run!.id;
-
+  const { runId, shopId } = await createReportRun(db, input);
   try {
-    const view = await db.transaction(async tx => {
-      for (const part of chunks(orders)) {
-        await tx.query(
-          `insert into orders (shop_id, id, name, created_at, total, currency, channel, first_visit, last_visit, line_items, fetched_at)
-           select $1::uuid, r.id, r.name, r.created_at, r.total, r.currency, r.channel, r.first_visit, r.last_visit, r.line_items, now()
-           from jsonb_to_recordset($2::text::jsonb) as r(id text, name text, created_at timestamptz, total numeric, currency text,
-             channel text, first_visit jsonb, last_visit jsonb, line_items jsonb)
-           on conflict (shop_id, id) do update set
-             name = excluded.name, created_at = excluded.created_at, total = excluded.total, currency = excluded.currency,
-             channel = excluded.channel, first_visit = excluded.first_visit, last_visit = excluded.last_visit,
-             line_items = excluded.line_items, fetched_at = excluded.fetched_at`,
-          [
-            shopId,
-            json(
-              part.map(o => ({
-                id: o.id,
-                name: o.name,
-                created_at: o.createdAt,
-                total: o.total,
-                currency: o.currency,
-                channel: o.channel ?? null,
-                first_visit: o.firstVisit ?? null,
-                last_visit: o.lastVisit ?? null,
-                line_items: o.lineItems
-              }))
-            )
-          ]
-        );
-      }
-
-      // Store exactly the attributions the view counts.
-      const attributions = classifyOrders(orders, file.signatures);
-      const built = assembleView({
-        orders,
-        attributions,
-        file,
-        store: { name: input.shop.name ?? input.shop.domain, domain: input.shop.domain },
-        generatedAt: now.toISOString()
-      });
-      for (const part of chunks(attributions)) {
-        await tx.query(
-          `insert into attributions (run_id, shop_id, order_id, is_ai, source, touch, evidence, proof)
-           select $1::uuid, $2::uuid, r.order_id, r.is_ai, r.source, r.touch, r.evidence,
-             array(select jsonb_array_elements_text(r.proof))
-           from jsonb_to_recordset($3::text::jsonb) as r(order_id text, is_ai boolean, source text, touch text, evidence text, proof jsonb)`,
-          [
-            runId,
-            shopId,
-            json(part.map(a => ({ order_id: a.orderId, is_ai: a.isAI, source: a.source, touch: a.touch, evidence: a.evidence, proof: a.proof })))
-          ]
-        );
-      }
-      await tx.query(`update runs set status = 'done', summary = $2::text::jsonb, finished_at = $3 where id = $1`, [
-        runId,
-        json(built.report),
-        now.toISOString()
-      ]);
-      return built;
-    });
+    const view = await completeReportRun(db, { runId, shopId, shop: input.shop, orders: input.orders, file: input.file, now: input.now });
     return { runId, view };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    await db.query(`update runs set status = 'failed', error = $2, finished_at = now() where id = $1`, [runId, message.slice(0, 1000)]);
+    await failReportRun(db, runId, error instanceof Error ? error.message : String(error));
     throw error;
   }
+}
+
+export interface RunStatus {
+  id: string;
+  status: "running" | "done" | "failed";
+  error: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+}
+
+/** The shop's most recently started report run, whatever its status. Null if it has none. */
+export async function latestReportRun(db: Queryable, shopDomain: string): Promise<RunStatus | null> {
+  const [row] = await db.query<{ id: string; status: RunStatus["status"]; error: string | null; started_at: Date | string; finished_at: Date | string | null }>(
+    `select r.id, r.status, r.error, r.started_at, r.finished_at
+     from runs r join shops s on s.id = r.shop_id
+     where s.shop_domain = $1 and r.kind = 'report'
+     order by r.started_at desc, r.id desc limit 1`,
+    [shopDomain]
+  );
+  if (!row) return null;
+  return {
+    id: row.id,
+    status: row.status,
+    error: row.error,
+    startedAt: new Date(row.started_at).toISOString(),
+    finishedAt: row.finished_at ? new Date(row.finished_at).toISOString() : null
+  };
+}
+
+/** Records that a running report is still making progress. */
+export async function touchReportRun(db: Queryable, runId: string, now: Date = new Date()): Promise<void> {
+  await db.query(`update runs set heartbeat_at = $2 where id = $1 and status = 'running'`, [runId, now.toISOString()]);
+}
+
+/**
+ * Fails report runs with no progress for `olderThanMinutes`: their process stopped (deploy, crash) before
+ * finishing. Running jobs touch their heartbeat as pages arrive, so a long run is never failed while it works.
+ * Pass `shopDomain` to check one shop.
+ */
+export async function failStaleRuns(db: Queryable, opts: { olderThanMinutes?: number; now?: Date; shopDomain?: string } = {}): Promise<number> {
+  const rows = await db.query(
+    `update runs set status = 'failed', error = 'The report stopped before finishing (the app restarted). Run it again.', finished_at = $2
+     where status = 'running' and kind = 'report'
+       and coalesce(heartbeat_at, started_at) < $2::timestamptz - make_interval(mins => $1::int)
+       and ($3::text is null or shop_id = (select id from shops where shop_domain = $3))
+     returning id`,
+    [opts.olderThanMinutes ?? 10, (opts.now ?? new Date()).toISOString(), opts.shopDomain ?? null]
+  );
+  return rows.length;
 }
 
 interface RunRow {
@@ -278,4 +374,196 @@ export async function redactOrders(db: Queryable, shopDomain: string, orderIds: 
     [shopDomain, json(gids)]
   );
   return rows.length;
+}
+
+/** Stores an Answer Check run for the shop. Returns the new row id. */
+export async function saveAnswerCheck(db: Queryable, shop: ShopInfo, run: AnswerCheckRun): Promise<string> {
+  const shopId = await upsertShop(db, shop);
+  const [row] = await db.query<{ id: string }>(
+    `insert into answer_checks (shop_id, mode, asked, contradictions, result, created_at)
+     values ($1, $2, $3, $4, $5::text::jsonb, $6) returning id`,
+    [shopId, run.mode, run.asked, run.contradictions, json(run), run.generatedAt]
+  );
+  return row!.id;
+}
+
+/** The shop's latest stored Answer Check, or null. */
+export async function loadLatestAnswerCheck(db: Queryable, shopDomain: string): Promise<AnswerCheckRun | null> {
+  const [row] = await db.query<{ result: AnswerCheckRun | string }>(
+    `select a.result from answer_checks a join shops s on s.id = a.shop_id
+     where s.shop_domain = $1 and s.uninstalled_at is null
+     order by a.created_at desc limit 1`,
+    [shopDomain]
+  );
+  if (!row) return null;
+  return typeof row.result === "string" ? (JSON.parse(row.result) as AnswerCheckRun) : row.result;
+}
+
+/** Stores a checkout test run in the failure corpus. `shop` is null for runs on the local test page. */
+export async function saveCheckoutRun(db: Queryable, input: { shop: ShopInfo | null; run: CheckoutRunResult }): Promise<string> {
+  const { run } = input;
+  // Look the shop up (or add it) without touching its install state: a test run never re-installs a shop.
+  let shopId: string | null = null;
+  if (input.shop) {
+    const [row] = await db.query<{ id: string }>(
+      `insert into shops (shop_domain, name) values ($1, $2) on conflict (shop_domain) do update set shop_domain = excluded.shop_domain returning id`,
+      [input.shop.domain, input.shop.name ?? null]
+    );
+    shopId = row!.id;
+  }
+  const failed = run.failedStep ? run.steps.find(s => s.n === run.failedStep) : undefined;
+  const [row] = await db.query<{ id: string }>(
+    `insert into checkout_runs (shop_id, target_url, target_kind, agent, result, failed_step, failure_kind, problems, steps, video_path, result_json, started_at, finished_at)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9::text::jsonb, $10, $11::text::jsonb, $12, $13) returning id`,
+    [
+      shopId,
+      run.target.url,
+      run.target.kind,
+      run.agent,
+      run.result,
+      run.failedStep,
+      failed?.title ?? null,
+      run.problems,
+      json(run.steps),
+      run.videoPath,
+      json(run),
+      run.startedAt,
+      run.finishedAt
+    ]
+  );
+  return row!.id;
+}
+
+/** The latest checkout test run for a shop, or for the local test page when `shopDomain` is null. */
+export async function loadLatestCheckoutRun(db: Queryable, shopDomain: string | null): Promise<CheckoutRunResult | null> {
+  const [row] = await db.query<{ result_json: CheckoutRunResult | string }>(
+    shopDomain
+      ? `select c.result_json from checkout_runs c join shops s on s.id = c.shop_id
+         where s.shop_domain = $1 and s.uninstalled_at is null order by c.started_at desc limit 1`
+      : `select result_json from checkout_runs where shop_id is null and target_kind = 'test_page' and $1::text is null order by started_at desc limit 1`,
+    [shopDomain]
+  );
+  if (!row) return null;
+  return typeof row.result_json === "string" ? (JSON.parse(row.result_json) as CheckoutRunResult) : row.result_json;
+}
+
+/** Failure corpus summary: how often each step blocked agents, across all runs. No store names. */
+export async function checkoutFailureCounts(db: Queryable): Promise<{ failureKind: string; runs: number }[]> {
+  const rows = await db.query<{ failure_kind: string; runs: number }>(
+    `select failure_kind, count(*)::int as runs from checkout_runs where result = 'blocked' and failure_kind is not null
+     group by failure_kind order by runs desc, failure_kind`
+  );
+  return rows.map(r => ({ failureKind: r.failure_kind, runs: Number(r.runs) }));
+}
+
+export interface StoredFix extends AppliedFix {
+  id: string;
+  status: "applied" | "undone";
+  undoneAt: string | null;
+}
+
+/** Another fix for this store is being applied or is live. */
+export class FixInProgressError extends Error {
+  constructor() {
+    super("Another fix is live or being applied on this store. Undo it first.");
+    this.name = "FixInProgressError";
+  }
+}
+
+/**
+ * Reserves the store's one fix slot before the store is written. Pending rows older than 10 minutes (a process
+ * that stopped mid-apply) are cleared first. Throws FixInProgressError if a fix is pending or live.
+ */
+export async function reserveFix(db: Queryable, shop: ShopInfo, suggestion: FixSuggestion, now: Date = new Date()): Promise<string> {
+  const shopId = await upsertShop(db, shop);
+  await db.query(`delete from weekly_fixes where shop_id = $1 and status = 'pending' and created_at < $2::timestamptz - interval '10 minutes'`, [
+    shopId,
+    now.toISOString()
+  ]);
+  const [row] = await db.query<{ id: string }>(
+    `insert into weekly_fixes (shop_id, fix_key, product_id, product_title, status, suggestion, created_at)
+     values ($1, $2, $3, $4, 'pending', $5::text::jsonb, $6)
+     on conflict (shop_id) where status in ('pending', 'applied') do nothing returning id`,
+    [shopId, suggestion.key, suggestion.productId, suggestion.productTitle, json(suggestion), now.toISOString()]
+  );
+  if (!row) throw new FixInProgressError();
+  return row.id;
+}
+
+/** Records what the store now holds for a reserved fix. Throws if the row is no longer pending. */
+export async function completeFix(db: Queryable, fixId: string, fix: AppliedFix): Promise<void> {
+  const rows = await db.query(
+    `update weekly_fixes set status = 'applied', suggestion = $2::text::jsonb, before_html = $3, after_html = $4, baseline = $5::text::jsonb, applied_at = $6
+     where id = $1 and status = 'pending' returning id`,
+    [fixId, json(fix.suggestion), fix.beforeHtml, fix.afterHtml, json(fix.baseline), fix.appliedAt]
+  );
+  if (rows.length === 0) throw new Error("The reserved fix was cleared before it could be recorded.");
+}
+
+/** Gives back a reservation whose store write didn't happen. */
+export async function releaseFix(db: Queryable, fixId: string): Promise<void> {
+  await db.query(`delete from weekly_fixes where id = $1 and status = 'pending'`, [fixId]);
+}
+
+/** Marks an applied fix as undone. Returns false if it wasn't applied (already undone or unknown). */
+export async function markFixUndone(db: Queryable, fixId: string, now: Date = new Date()): Promise<boolean> {
+  const rows = await db.query(`update weekly_fixes set status = 'undone', undone_at = $2 where id = $1 and status = 'applied' returning id`, [fixId, now.toISOString()]);
+  return rows.length > 0;
+}
+
+/** The shop's most recent applied or undone fix (pending reservations are not shown). */
+export async function latestFix(db: Queryable, shopDomain: string): Promise<StoredFix | null> {
+  const [row] = await db.query<{
+    id: string;
+    status: StoredFix["status"];
+    suggestion: FixSuggestion | string;
+    before_html: string;
+    after_html: string;
+    baseline: FixBaseline | string;
+    applied_at: Date | string;
+    undone_at: Date | string | null;
+  }>(
+    `select f.id, f.status, f.suggestion, f.before_html, f.after_html, f.baseline, f.applied_at, f.undone_at
+     from weekly_fixes f join shops s on s.id = f.shop_id
+     where s.shop_domain = $1 and s.uninstalled_at is null and f.status in ('applied', 'undone')
+     order by f.applied_at desc limit 1`,
+    [shopDomain]
+  );
+  if (!row) return null;
+  const parse = <T>(v: T | string): T => (typeof v === "string" ? (JSON.parse(v) as T) : v);
+  return {
+    id: row.id,
+    status: row.status,
+    suggestion: parse(row.suggestion),
+    beforeHtml: row.before_html,
+    afterHtml: row.after_html,
+    baseline: parse(row.baseline),
+    appliedAt: new Date(row.applied_at).toISOString(),
+    undoneAt: row.undone_at ? new Date(row.undone_at).toISOString() : null
+  };
+}
+
+/**
+ * AI revenue per product (line item totals, as in the AI Sales report) from orders placed since `since`, in the
+ * shop's latest finished report, and the number of days covered (since → the newest order, at least one day).
+ */
+export async function aiRevenueSince(db: Queryable, shopDomain: string, since: string): Promise<SalesSince | null> {
+  const [run] = await db.query<{ id: string; finished_at: Date | string }>(
+    `select r.id, r.finished_at from runs r join shops s on s.id = r.shop_id
+     where s.shop_domain = $1 and r.kind = 'report' and r.status = 'done' order by r.finished_at desc limit 1`,
+    [shopDomain]
+  );
+  if (!run) return null;
+  const rows = await db.query<{ title: string; revenue: string | number; newest: Date | string }>(
+    `select li->>'title' as title, sum((li->>'total')::numeric) as revenue, max(o.created_at) as newest
+     from attributions a
+     join orders o on o.shop_id = a.shop_id and o.id = a.order_id
+     cross join lateral jsonb_array_elements(o.line_items) li
+     where a.run_id = $1 and a.is_ai and o.created_at >= $2::timestamptz
+     group by li->>'title'`,
+    [run.id, since]
+  );
+  const end = Math.max(Date.parse(since), ...rows.map(r => new Date(r.newest).getTime()), new Date(run.finished_at).getTime());
+  const periodDays = Math.max(1, Math.round((end - Date.parse(since)) / 864e5));
+  return { periodDays, revenue: Object.fromEntries(rows.map(r => [r.title, Math.round(Number(r.revenue) * 100) / 100])) };
 }

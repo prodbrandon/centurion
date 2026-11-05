@@ -7,37 +7,28 @@ embedded = true
 
 [build]
 automatically_update_urls_on_dev = true
-include_config_on_deploy = true
 
 [webhooks]
 # Matches apiVersion in app/shopify.server.ts (ApiVersion.October26).
 api_version = "2026-10"
 
-  [[webhooks.subscriptions]]
-  topics = [ "app/uninstalled" ]
-  uri = "/webhooks/app/uninstalled"
-
-  [[webhooks.subscriptions]]
-  topics = [ "app/scopes_update" ]
-  uri = "/webhooks/app/scopes_update"
-
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/customers/data_request"
-  compliance_topics = [ "customers/data_request" ]
-
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/customers/redact"
-  compliance_topics = [ "customers/redact" ]
-
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/shop/redact"
-  compliance_topics = [ "shop/redact" ]
+  # All webhook subscriptions are left out until application_url points at a hosted app: relative URIs
+  # resolve against application_url, and Shopify rejects the placeholder (a Shopify domain).
+  # Once the app is hosted, restore these (the routes exist under app/routes/webhooks.*):
+  #   topics = [ "app/uninstalled" ]                       uri = "/webhooks/app/uninstalled"
+  #   topics = [ "app/scopes_update" ]                     uri = "/webhooks/app/scopes_update"
+  #   compliance_topics = [ "customers/data_request" ]     uri = "/webhooks/customers/data_request"
+  #   compliance_topics = [ "customers/redact" ]           uri = "/webhooks/customers/redact"
+  #   compliance_topics = [ "shop/redact" ]                uri = "/webhooks/shop/redact"
+  # The compliance webhooks are required before App Store distribution.
 
 [access_scopes]
 # read_orders: last 60 days of orders with their customer journey (AI Sales).
-# Add read_all_orders (needs Shopify approval) for longer windows, and write_products for Weekly Fix.
+# read_products: product titles, prices, stock and the centurion.* claim metafields (Answer Check).
+# write_products: Weekly Fix and Ask Centurion apply (and undo) a fix to a product description. Writes also need
+# CENTURION_STORE_WRITES=on. Add read_all_orders (needs Shopify approval) for longer windows.
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_orders"
+scopes = "read_orders,read_products,write_products"
 
 [auth]
 redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]

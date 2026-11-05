@@ -1,12 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { DM_Sans, Space_Grotesk } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
+import { Assistant } from "@/components/Assistant";
+import { CommandPalette } from "@/components/CommandPalette";
+import { PaletteButton } from "@/components/PaletteButton";
 import { Tabs } from "@/components/Tabs";
 import { getAiSales } from "@/lib/data";
+import { ASSISTANT_SUGGESTIONS } from "@centurion/core/server";
 import "./globals.css";
 
-const body = DM_Sans({ subsets: ["latin"], variable: "--font-body" });
-const display = Space_Grotesk({ subsets: ["latin"], weight: ["500", "700"], variable: "--font-display" });
+const body = Inter({ subsets: ["latin"], variable: "--font-body" });
+const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
   title: "Centurion",
@@ -20,20 +24,23 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const storeName = sales.view?.store.name ?? (sales.mode === "live" ? sales.shop : "");
 
   return (
-    <html lang="en" className={`${body.variable} ${display.variable}`}>
+    <html lang="en" className={`${body.variable} ${mono.variable}`}>
       <body>
         <div className="shell">
           <header className="topbar">
             <Link className="brand" href="/">
               Centurion<span>.</span>
             </Link>
-            <span className="store-chip">
+            <span className="topbar-right">
+              <PaletteButton />
+              <span className="store-chip">
               {storeName} · {sales.mode === "demo" ? "demo store" : "live"}
+              </span>
             </span>
           </header>
           {sales.mode === "demo" ? (
             <p className="demo-banner">
-              <b>Demo mode.</b> A fictional outdoor brand with 90 days of sample orders. Nothing here touches a real store.
+              <b>Demo mode.</b> Northpine Outfitters, a fictional mid-market outdoor brand: 60 products, 237 SKUs, 12,000 orders over 90 days. Nothing here touches a real store.
             </p>
           ) : (
             <p className="demo-banner">
@@ -41,12 +48,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </p>
           )}
           <Tabs />
+          <Assistant suggestions={ASSISTANT_SUGGESTIONS} storeName={storeName} />
+          <CommandPalette />
           <main>{children}</main>
           <footer className="foot">
             {sales.view
               ? `AI Sales numbers come from the Centurion engine (AI source list v${sales.view.signaturesVersion}). `
               : ""}
-            Screens marked Preview show sample results for features being built Oct 26 to Nov 4, 2026.
+            Answer Check, Checkout Test and Weekly Fix label their demo, fixture and test-page data on each screen.
           </footer>
         </div>
       </body>
