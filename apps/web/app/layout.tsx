@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
+import { Assistant } from "@/components/Assistant";
 import { Tabs } from "@/components/Tabs";
 import { getAiSales } from "@/lib/data";
+import { ASSISTANT_SUGGESTIONS } from "@centurion/core/server";
 import "./globals.css";
 
 const body = Inter({ subsets: ["latin"], variable: "--font-body" });
@@ -41,6 +43,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </p>
           )}
           <Tabs />
+          <Assistant suggestions={ASSISTANT_SUGGESTIONS} storeName={storeName} />
           <main>{children}</main>
           <footer className="foot">
             {sales.view

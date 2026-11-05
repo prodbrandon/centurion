@@ -10,3 +10,4 @@ export * from "./answer-check/index.ts";
 export * from "./jobs.ts";
 export * from "./weekly-fix.ts";
 export { DEMO_SALES_SNAPSHOT } from "./demo-sales.ts";
+export { askAssistant, storeBriefing, ASSISTANT_SUGGESTIONS, ASSISTANT_SYSTEM_PROMPT, type AssistantContext, type AssistantTurn } from "./assistant.ts";
