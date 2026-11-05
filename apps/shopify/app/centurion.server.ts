@@ -1,6 +1,9 @@
 // Bridge between the Shopify app and @centurion/core. Everything that counts or stores
 // data goes through core, so the web app sees exactly what this app writes.
 import {
+  askAssistant,
+  ASSISTANT_SUGGESTIONS,
+  type AssistantTurn,
   applyFix,
   buildQuestions,
   createAnswerProviders,
@@ -372,4 +375,29 @@ export async function undoWeeklyFix(shop: string, graphql: AdminGraphql) {
   await undoFix(shopifyProductAdmin(runnerFor(graphql)), current, { writesEnabled: storeWritesEnabled(process.env) });
   if (!(await markFixUndone(db, current.id))) throw new Error("This fix was already undone.");
   return { id: current.id };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Ask Centurion (Meta Muse Spark over the store's Centurion data, read-only)
+// ---------------------------------------------------------------------------------------------
+
+export { ASSISTANT_SUGGESTIONS };
+
+/** What the assistant reads: this store's report when it has AI orders, otherwise the labeled Northpine sample. */
+async function assistantContext(shop: string) {
+  const report = await latestReport(shop);
+  const ownView = report.configured ? report.view : null;
+  const demo = Boolean(report.demo);
+  const check = await answerCheckState(shop);
+  const answerCheck = demo ? (check.demo?.run ?? check.run) : (check.run && check.run.contradictions > 0 ? check.run : (check.demo?.run ?? check.run));
+  return { view: demo ? report.demo : ownView, answerCheck, demo };
+}
+
+export async function assistantState(shop: string) {
+  const ctx = await assistantContext(shop);
+  return { live: isMetaLive(process.env), demo: ctx.demo, storeName: ctx.view?.store.name ?? shop, suggestions: ASSISTANT_SUGGESTIONS };
+}
+
+export async function askStore(shop: string, question: string, history: AssistantTurn[]) {
+  return askAssistant({ question, history, context: await assistantContext(shop) });
 }

@@ -18,6 +18,7 @@ export default function App() {
   return (
     <AppProvider apiKey={apiKey}>
       <s-app-nav>
+        <s-link href="/app/assistant">Ask Centurion</s-link>
         <s-link href="/app">AI Sales</s-link>
         <s-link href="/app/checkout-test">Checkout Test</s-link>
         <s-link href="/app/answer-check">Answer Check</s-link>
