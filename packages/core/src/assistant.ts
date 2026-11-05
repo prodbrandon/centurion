@@ -15,7 +15,16 @@ export interface AssistantContext {
   answerCheck?: AnswerCheckRun | null;
   /** True when the data is the fictional demo store; the assistant says so when it matters. */
   demo: boolean;
+  /** The Centurion screen the merchant is looking at, so "this page" questions make sense. */
+  screen?: string;
 }
+
+const SCREEN_GUIDE: Record<string, string> = {
+  "AI Sales": "AI-attributed revenue with proof: demand by AI agent, revenue trajectory by week, agent-assisted journeys, products agents recommend, the attribution ledger of every AI order and the unattributed signal",
+  "Answer Check": "questions shoppers ask AI about the store, each AI answer compared with the catalog by fixed rules; wrong answers show what AI said vs the catalog fact and its source",
+  "Checkout Test": "an AI shopping agent walks the store to checkout step by step (never pays) and reports where agents get stuck",
+  "Weekly Fix": "one catalog fix a week: the top AI seller that AI gets wrong, the exact text to add, apply/undo, and a holdout comparison to measure the effect"
+};
 
 /** Muse Spark reasons before answering and reasoning counts toward the limit. */
 export const ASSISTANT_MAX_COMPLETION_TOKENS = 4000;
@@ -50,6 +59,7 @@ function byAssistantByMonth(v: AiSalesView): string {
 /** A compact, plain-text briefing of the store's Centurion data for the model. */
 export function storeBriefing(ctx: AssistantContext): string {
   const lines: string[] = [];
+  if (ctx.screen && SCREEN_GUIDE[ctx.screen]) lines.push(`MERCHANT IS VIEWING: the ${ctx.screen} screen, which shows ${SCREEN_GUIDE[ctx.screen]}`);
   const v = ctx.view;
   if (!v) {
     lines.push("AI SALES: no report has run for this store yet.");

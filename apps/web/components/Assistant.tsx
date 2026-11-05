@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 type Turn = { role: "user" | "assistant"; content: string };
@@ -17,7 +18,14 @@ type Recognition = {
 };
 type RecognitionCtor = new () => Recognition;
 
-/** Ask Centurion: a Meta Muse Spark analyst over the store's data, by text or voice. Read-only. */
+const SCREENS: Record<string, string> = { "/": "AI Sales", "/checkout-test": "Checkout Test", "/answer-check": "Answer Check", "/weekly-fix": "Weekly Fix" };
+const OPEN_KEY = "centurion.assistant.open";
+
+/**
+ * Ask Centurion: a Meta Muse Spark analyst over the store's data, by text or voice. Read-only.
+ * A launcher in the corner opens a chat window; it lives in the root layout, so the conversation
+ * survives tab changes. "/" opens it, Esc closes it.
+ */
 export function Assistant({ suggestions, storeName }: { suggestions: string[]; storeName: string }) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState("");
@@ -25,8 +33,41 @@ export function Assistant({ suggestions, storeName }: { suggestions: string[]; s
   const [error, setError] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
   const [voiceOk, setVoiceOk] = useState(false);
+  const [open, setOpen] = useState(false);
   const rec = useRef<Recognition | null>(null);
   const log = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const launcher = useRef<HTMLButtonElement>(null);
+  const screen = SCREENS[usePathname()] ?? "Centurion";
+
+  // Remember open/closed per browser; storage can be unavailable (private mode), so never depend on it.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(OPEN_KEY) === "1") setOpen(true);
+    } catch {}
+  }, []);
+  function show(next: boolean) {
+    setOpen(next);
+    try {
+      localStorage.setItem(OPEN_KEY, next ? "1" : "0");
+    } catch {}
+    if (next) setTimeout(() => input.current?.focus(), 0);
+    else launcher.current?.focus();
+  }
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const typing = e.target instanceof HTMLElement && (e.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName));
+      if (e.key === "/" && !typing && !open) {
+        e.preventDefault();
+        show(true);
+      } else if (e.key === "Escape" && open) {
+        show(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   useEffect(() => {
     const w = window as unknown as { SpeechRecognition?: RecognitionCtor; webkitSpeechRecognition?: RecognitionCtor };
@@ -49,7 +90,7 @@ export function Assistant({ suggestions, storeName }: { suggestions: string[]; s
       const res = await fetch("/api/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: q, history })
+        body: JSON.stringify({ question: q, history, screen })
       });
       const data = (await res.json()) as { answer?: string; error?: string };
       if (!res.ok || !data.answer) throw new Error(data.error ?? "No answer came back.");
@@ -96,73 +137,115 @@ export function Assistant({ suggestions, storeName }: { suggestions: string[]; s
   }
 
   return (
-    <section className="assistant" aria-label="Ask Centurion">
-      <div className="assistant-head">
-        <span className="assistant-mark" aria-hidden="true" />
-        <span className="assistant-title">Ask Centurion</span>
-        <span className="assistant-model">Meta Muse Spark · reads {storeName || "your store"}’s data · read-only</span>
-      </div>
-
-      {turns.length > 0 || busy ? (
-        <div className="assistant-log" ref={log} aria-live="polite">
-          {turns.map((t, i) => (
-            <div key={i} className={`turn ${t.role}`}>
-              {t.content.split("\n").filter(Boolean).map((line, j) => (
-                <p key={j}>{line}</p>
-              ))}
+    <>
+      {open ? (
+        <section className="assistant" role="dialog" aria-label="Ask Centurion">
+          <div className="assistant-head">
+            <span className="assistant-mark" aria-hidden="true" />
+            <span className="assistant-title">Ask Centurion</span>
+            <span className="assistant-model">Muse Spark · on {screen}</span>
+            <div className="assistant-actions">
+              {turns.length > 0 && !busy ? (
+                <button type="button" className="icon-btn ghost" onClick={() => setTurns([])} aria-label="New conversation" title="New conversation">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                </button>
+              ) : null}
+              <button type="button" className="icon-btn ghost" onClick={() => show(false)} aria-label="Close Ask Centurion" title="Close (Esc)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
             </div>
-          ))}
-          {busy ? <div className="turn assistant thinking">Reading your store data…</div> : null}
-        </div>
-      ) : (
-        <div className="assistant-chips">
-          {suggestions.map(s => (
-            <button key={s} type="button" className="chip" onClick={() => void ask(s)}>
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
+          </div>
 
-      <form
-        className="assistant-input"
-        onSubmit={e => {
-          e.preventDefault();
-          void ask(draft);
-        }}
-      >
-        <input
-          value={draft}
-          onChange={e => setDraft(e.target.value)}
-          placeholder={listening ? "Listening…" : "Ask about AI revenue, products, or what AI gets wrong"}
-          aria-label="Ask Centurion a question"
-          disabled={busy}
-        />
-        {voiceOk ? (
-          <button
-            type="button"
-            className={`icon-btn${listening ? " live" : ""}`}
-            onClick={toggleVoice}
-            aria-label={listening ? "Stop voice input" : "Ask by voice"}
-            aria-pressed={listening}
-            disabled={busy}
+          <div className="assistant-log" ref={log} aria-live="polite">
+            {turns.length === 0 && !busy ? (
+              <>
+                <p className="assistant-intro">
+                  Ask anything about {storeName || "your store"}’s AI revenue, products and what AI assistants get wrong. Answers come only from
+                  your Centurion data, with the numbers used. Read-only.
+                </p>
+                <div className="assistant-chips">
+                  {[`Explain the ${screen} screen in 3 bullets`, ...suggestions].map(s => (
+                    <button key={s} type="button" className="chip" onClick={() => void ask(s)}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : null}
+            {turns.map((t, i) => (
+              <div key={i} className={`turn ${t.role === "user" ? "user" : "bot"}`}>
+                {t.content.split("\n").filter(Boolean).map((line, j) => (
+                  <p key={j}>{line}</p>
+                ))}
+              </div>
+            ))}
+            {busy ? <div className="turn bot thinking">Reading your store data…</div> : null}
+          </div>
+
+          {error ? <p className="assistant-error">{error}</p> : null}
+          <form
+            className="assistant-input"
+            onSubmit={e => {
+              e.preventDefault();
+              void ask(draft);
+            }}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-              <rect x="9" y="3" width="6" height="11" rx="3" />
-              <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
-            </svg>
-          </button>
-        ) : null}
-        <button type="submit" className="btn" disabled={busy || !draft.trim()}>
-          Ask
-        </button>
-      </form>
-      {error ? <p className="assistant-error">{error}</p> : null}
-      {turns.length > 0 && !busy ? (
-        <button type="button" className="assistant-reset" onClick={() => setTurns([])}>
-          New conversation
-        </button>
+            <input
+              ref={input}
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              placeholder={listening ? "Listening…" : "Ask a question"}
+              aria-label="Ask Centurion a question"
+              disabled={busy}
+            />
+            {voiceOk ? (
+              <button
+                type="button"
+                className={`icon-btn${listening ? " live" : ""}`}
+                onClick={toggleVoice}
+                aria-label={listening ? "Stop voice input" : "Ask by voice"}
+                aria-pressed={listening}
+                disabled={busy}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                  <rect x="9" y="3" width="6" height="11" rx="3" />
+                  <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+                </svg>
+              </button>
+            ) : null}
+            <button type="submit" className="btn" disabled={busy || !draft.trim()}>
+              Ask
+            </button>
+          </form>
+        </section>
       ) : null}
-    </section>
+
+      <button
+        ref={launcher}
+        type="button"
+        className={`assistant-launcher${open ? " open" : ""}`}
+        onClick={() => show(!open)}
+        aria-expanded={open}
+        aria-label={open ? "Close Ask Centurion" : "Open Ask Centurion (press /)"}
+      >
+        {open ? (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        ) : (
+          <>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />
+            </svg>
+            <span>Ask Centurion</span>
+            <kbd>/</kbd>
+          </>
+        )}
+      </button>
+    </>
   );
 }
