@@ -1,4 +1,5 @@
 import { shortDate, TEST_PAGE_CHECKOUT_RUN as run, type CheckoutStepStatus } from "@centurion/core";
+import { AgentReplay } from "@/components/AgentReplay";
 
 export const metadata = { title: "Checkout Test · Centurion" };
 
@@ -32,6 +33,14 @@ export default function CheckoutTestPage() {
         Test-page run · a real run of the checkout agent on a local practice store (popup and unlabeled size picker switched on), not on
         Northpine or any real shop.
       </span>
+
+      <section className="card">
+        <h2>Watch the agent shop</h2>
+        <p className="sub" style={{ marginBottom: 16 }}>
+          A replay of the recorded run: what the agent saw at each step, where it got stuck, and the fix for each problem.
+        </p>
+        <AgentReplay run={run} />
+      </section>
 
       <section className="card">
         <h2>The recording</h2>

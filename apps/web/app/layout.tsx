@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
 import { Assistant } from "@/components/Assistant";
+import { CommandPalette } from "@/components/CommandPalette";
+import { PaletteButton } from "@/components/PaletteButton";
 import { Tabs } from "@/components/Tabs";
 import { getAiSales } from "@/lib/data";
 import { ASSISTANT_SUGGESTIONS } from "@centurion/core/server";
@@ -29,8 +31,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <Link className="brand" href="/">
               Centurion<span>.</span>
             </Link>
-            <span className="store-chip">
+            <span className="topbar-right">
+              <PaletteButton />
+              <span className="store-chip">
               {storeName} · {sales.mode === "demo" ? "demo store" : "live"}
+              </span>
             </span>
           </header>
           {sales.mode === "demo" ? (
@@ -44,6 +49,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           )}
           <Tabs />
           <Assistant suggestions={ASSISTANT_SUGGESTIONS} storeName={storeName} />
+          <CommandPalette />
           <main>{children}</main>
           <footer className="foot">
             {sales.view
