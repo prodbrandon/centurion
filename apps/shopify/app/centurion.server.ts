@@ -2,6 +2,11 @@
 // data goes through core, so the web app sees exactly what this app writes.
 import {
   askAssistant,
+  askAssistantRich,
+  applyFixLive,
+  undoFixLive,
+  storeWritesEnabled as writesOn,
+  type AssistantReply,
   ASSISTANT_SUGGESTIONS,
   type AssistantTurn,
   applyFix,
@@ -400,4 +405,80 @@ export async function assistantState(shop: string) {
 
 export async function askStore(shop: string, question: string, history: AssistantTurn[]) {
   return askAssistant({ question, history, context: await assistantContext(shop) });
+}
+
+/** Rich answer (headline, metrics, chart, table, actions) for the Shopify Ask Centurion page. */
+export async function askStoreRich(shop: string, question: string, history: AssistantTurn[]): Promise<AssistantReply> {
+  const ctx = await assistantContext(shop);
+  return (await askAssistantRich({ question, history, context: { ...ctx, screen: "AI Sales" } })).reply;
+}
+
+export type ShopCard =
+  | { type: "fix"; product: string; addition: string; before: string; aiRevenue: number; periodDays: number; finding: { provider: string; said: string; truth: string } | null; holdouts: string[]; live: boolean }
+  | { type: "answer_check"; asked: number; matched: number; wrong: number; noAnswer: number; top: { product: string; assistant: string; said: string; truth: string }[] }
+  | { type: "checkout"; run: CheckoutRunResult }
+  | { type: "csv"; filename: string; rows: number; csv: string }
+  | { type: "navigate"; href: string; label: string };
+
+const demoFixtureCheck = () => runAnswerCheck({ catalog: DEMO_NORTHPINE_CATALOG, providers: createAnswerProviders({}) });
+const demoSuggestionFix = async () => suggestFix({ sales: DEMO_SALES_SNAPSHOT, answerCheck: await demoFixtureCheck(), catalog: DEMO_NORTHPINE_CATALOG });
+
+/** Runs one Ask Centurion action. Fixed code; the model only picks the id. */
+export async function runStoreAction(shop: string, id: string): Promise<ShopCard> {
+  switch (id) {
+    case "draft_fix": {
+      const s = await demoSuggestionFix();
+      if (!s) throw new Error("Nothing to fix this week: AI gets no top seller wrong.");
+      return {
+        type: "fix",
+        product: s.productTitle,
+        addition: s.addition,
+        before: DEMO_NORTHPINE_CATALOG.products.find(p => p.id === s.productId)?.description ?? "",
+        aiRevenue: s.evidence.aiRevenue,
+        periodDays: s.evidence.periodDays,
+        finding: s.evidence.findings[0] ?? null,
+        holdouts: s.holdouts.map(h => h.title),
+        live: writesOn(process.env)
+      };
+    }
+    case "run_answer_check": {
+      const run = await demoFixtureCheck();
+      return {
+        type: "answer_check",
+        asked: run.asked,
+        matched: run.consistent,
+        wrong: run.contradictions,
+        noAnswer: run.noAnswer,
+        top: findings(run).slice(0, 4).map(r => ({ product: r.subject, assistant: r.providerLabel, said: r.issues[0]?.said ?? "", truth: r.issues[0]?.truth ?? "" }))
+      };
+    }
+    case "watch_checkout":
+      return { type: "checkout", run: TEST_PAGE_CHECKOUT_RUN };
+    case "export_ai_orders": {
+      const view = (await assistantContext(shop)).view;
+      const cell = (v: unknown) => (/[",\n]/.test(String(v ?? "")) ? `"${String(v ?? "").replace(/"/g, '""')}"` : String(v ?? ""));
+      const rows = (view?.aiOrders ?? []).map(o => [o.name, o.createdAt.slice(0, 10), o.source, o.total, o.evidence, o.touch, o.proof.join(" | ")]);
+      const csv = [["order", "date", "assistant", "total", "evidence", "journey", "proof"], ...rows].map(r => r.map(cell).join(",")).join("\n");
+      return { type: "csv", filename: `ai-orders-${view?.report.period.to ?? "export"}.csv`, rows: rows.length, csv };
+    }
+    default: {
+      const href = { open_ai_sales: "/app", open_answer_check: "/app/answer-check", open_weekly_fix: "/app/weekly-fix" }[id];
+      if (!href) throw new Error("Unknown action.");
+      return { type: "navigate", href, label: href };
+    }
+  }
+}
+
+/** Applies the demo fix to this store's copy of the product (created on first use) through the merchant's session. */
+export async function applyStoreFix(shop: string, graphql: AdminGraphql) {
+  const s = await demoSuggestionFix();
+  const product = DEMO_NORTHPINE_CATALOG.products.find(p => p.id === s?.productId);
+  if (!s || !product) throw new Error("There is no fix to apply.");
+  return applyFixLive(runnerFor(graphql), shop, s, product);
+}
+
+export async function undoStoreFix(graphql: AdminGraphql, input: { productId: string; beforeHtml: string; afterHtml: string }) {
+  const s = await demoSuggestionFix();
+  if (!s) throw new Error("There is no fix to undo.");
+  return undoFixLive(runnerFor(graphql), { ...input, suggestion: s });
 }

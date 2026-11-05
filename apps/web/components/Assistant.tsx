@@ -67,6 +67,10 @@ export function Assistant({ suggestions, storeName }: { suggestions: string[]; s
   const [voiceOk, setVoiceOk] = useState(false);
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [unread, setUnread] = useState(0);
+  const [teaser, setTeaser] = useState<string | null>(null);
+  const openRef = useRef(false);
+  openRef.current = open;
   const rec = useRef<Recognition | null>(null);
   const log = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -75,8 +79,41 @@ export function Assistant({ suggestions, storeName }: { suggestions: string[]; s
 
   useEffect(() => {
     setVoiceOk(Boolean(speechCtor()));
-    setOpen(recall(OPEN_KEY));
+    // The chat always starts hidden; only its size is remembered.
     setExpanded(recall(SIZE_KEY));
+  }, []);
+
+  /** A reply or card that lands while the chat is closed raises a badge and a teaser on the launcher. */
+  function notify(turn: Turn, text: string) {
+    setTurns(t => [...t, turn]);
+    if (!openRef.current) {
+      setUnread(u => u + 1);
+      setTeaser(text);
+    }
+  }
+
+  // Proactive insight, once per browser session: prepare this week's fix and nudge the merchant.
+  useEffect(() => {
+    let seen = false;
+    try {
+      seen = sessionStorage.getItem("centurion.assistant.nudged") === "1";
+      sessionStorage.setItem("centurion.assistant.nudged", "1");
+    } catch {}
+    if (seen) return;
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/action", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: "draft_fix" }) });
+        const data = (await res.json()) as { card?: Card };
+        if (res.ok && data.card && data.card.type === "fix") {
+          const c = data.card;
+          notify(
+            { role: "card", card: c, label: "New · this week’s fix is ready" },
+            `This week’s fix is ready: ${c.product}. ${c.finding ? `${c.finding.provider} tells shoppers “${c.finding.said}”` : ""}`
+          );
+        }
+      } catch {}
+    }, 3000);
+    return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
@@ -86,6 +123,10 @@ export function Assistant({ suggestions, storeName }: { suggestions: string[]; s
   function show(next: boolean) {
     setOpen(next);
     remember(OPEN_KEY, next);
+    if (next) {
+      setUnread(0);
+      setTeaser(null);
+    }
     if (next) setTimeout(() => input.current?.focus(), 50);
     else launcher.current?.focus();
   }
@@ -114,7 +155,7 @@ export function Assistant({ suggestions, storeName }: { suggestions: string[]; s
       const res = await fetch("/api/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: q, history, screen }) });
       const data = (await res.json()) as { reply?: Reply; error?: string };
       if (!res.ok || !data.reply) throw new Error(data.error ?? "No answer came back.");
-      setTurns(t => [...t, { role: "bot", reply: data.reply! }]);
+      notify({ role: "bot", reply: data.reply! }, data.reply!.headline);
     } catch (e) {
       setTurns(t => [...t, { role: "error", text: e instanceof Error ? e.message : String(e) }]);
     } finally {
@@ -129,7 +170,7 @@ export function Assistant({ suggestions, storeName }: { suggestions: string[]; s
       const res = await fetch("/api/action", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
       const data = (await res.json()) as { card?: Card; error?: string };
       if (!res.ok || !data.card) throw new Error(data.error ?? "The action failed.");
-      setTurns(t => [...t, { role: "card", card: data.card!, label: ACTION_LABEL[id] ?? id }]);
+      notify({ role: "card", card: data.card!, label: ACTION_LABEL[id] ?? id }, `${ACTION_LABEL[id] ?? id} is ready.`);
     } catch (e) {
       setTurns(t => [...t, { role: "error", text: e instanceof Error ? e.message : String(e) }]);
     } finally {
@@ -360,17 +401,36 @@ export function Assistant({ suggestions, storeName }: { suggestions: string[]; s
         ) : null}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {!open && teaser ? (
+          <motion.button
+            key="teaser"
+            type="button"
+            className="assistant-teaser"
+            onClick={() => show(true)}
+            initial={reduce ? false : { opacity: 0, y: 8, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={reduce ? undefined : { opacity: 0, y: 8, scale: 0.96 }}
+            transition={spring}
+          >
+            <span className="assistant-mark" aria-hidden="true" />
+            <span>{teaser}</span>
+          </motion.button>
+        ) : null}
+      </AnimatePresence>
+
       <motion.button
         ref={launcher}
         type="button"
-        className={`assistant-launcher${open ? " open" : ""}`}
+        className={`assistant-launcher${open ? " open" : ""}${unread ? " unread" : ""}`}
         onClick={() => show(!open)}
         aria-expanded={open}
-        aria-label={open ? "Close Ask Centurion" : "Open Ask Centurion (press /)"}
+        aria-label={open ? "Close Ask Centurion" : unread ? `Open Ask Centurion, ${unread} new` : "Open Ask Centurion (press /)"}
         whileHover={reduce ? undefined : { y: -2 }}
         whileTap={reduce ? undefined : { scale: 0.96 }}
+        animate={!reduce && unread && !open ? { rotate: [0, -6, 6, -4, 4, 0], y: [0, -6, 0, -3, 0] } : { rotate: 0, y: 0 }}
+        transition={!reduce && unread && !open ? { duration: 0.9, repeat: Infinity, repeatDelay: 2.4 } : spring}
         layout={!reduce}
-        transition={spring}
       >
         {open ? (
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
@@ -382,9 +442,16 @@ export function Assistant({ suggestions, storeName }: { suggestions: string[]; s
               <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />
             </svg>
             <span>Ask Centurion</span>
-            <kbd>/</kbd>
+            {unread ? (
+              <motion.span className="badge" key={unread} initial={reduce ? false : { scale: 0.4 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 600, damping: 18 }}>
+                {unread}
+              </motion.span>
+            ) : (
+              <kbd>/</kbd>
+            )}
           </>
         )}
+        {!open && unread && !reduce ? <span className="ping" aria-hidden="true" /> : null}
       </motion.button>
     </>
   );

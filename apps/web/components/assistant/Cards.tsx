@@ -26,6 +26,9 @@ export type Card =
       periodDays: number;
       finding: { provider: string; said: string; truth: string } | null;
       holdouts: string[];
+      /** True when Apply writes to the real (dev) store; false applies to a demo copy in the browser. */
+      live: boolean;
+      shop: string | null;
     }
   | { type: "answer_check"; asked: number; matched: number; wrong: number; noAnswer: number; fixture: boolean; top: { product: string; assistant: string; said: string; truth: string }[] }
   | { type: "checkout"; run: CheckoutRunResult }
@@ -154,12 +157,52 @@ export function CardView({ card }: { card: Card }) {
   }
 }
 
+type Applied = { live: false } | { live: true; shop: string; productId: string; adminUrl: string; createdProduct: boolean; beforeHtml: string; afterHtml: string };
+
+async function post(body: Record<string, unknown>) {
+  const res = await fetch("/api/action", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "The action failed.");
+  return data;
+}
+
 function FixCard({ card }: { card: Extract<Card, { type: "fix" }> }) {
-  const [state, setState] = useState<"draft" | "applied">("draft");
+  const [applied, setApplied] = useState<Applied | null>(null);
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const reduce = useReducedMotion();
+
+  async function apply() {
+    setWorking(true);
+    setError(null);
+    try {
+      setApplied((await post({ id: "apply_fix" })) as Applied);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setWorking(false);
+    }
+  }
+  async function undo() {
+    if (!applied) return;
+    setWorking(true);
+    setError(null);
+    try {
+      if (applied.live) await post({ id: "undo_fix", productId: applied.productId, beforeHtml: applied.beforeHtml, afterHtml: applied.afterHtml });
+      setApplied(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setWorking(false);
+    }
+  }
+
   return (
     <div className="card-x">
-      <p className="card-x-title">This week’s fix · {card.product}</p>
+      <p className="card-x-title">
+        This week’s fix · {card.product}
+        <span className={`pill${card.live ? " live" : ""}`}>{card.live ? `Live · ${card.shop}` : "Demo copy"}</span>
+      </p>
       <p className="fix-why">
         {usd(card.aiRevenue)} of AI sales in {card.periodDays} days
         {card.finding ? (
@@ -172,7 +215,7 @@ function FixCard({ card }: { card: Extract<Card, { type: "fix" }> }) {
       </p>
       <div className="fix-desc">
         <AnimatePresence initial={false}>
-          {state === "applied" ? (
+          {applied ? (
             <motion.p
               key="add"
               className="fix-add"
@@ -190,21 +233,34 @@ function FixCard({ card }: { card: Extract<Card, { type: "fix" }> }) {
         </AnimatePresence>
         <p className="fix-before">{card.before}</p>
       </div>
-      {state === "draft" ? (
+      {!applied ? (
         <div className="reply-actions">
-          <button type="button" className="act primary" onClick={() => setState("applied")}>
-            Apply to product description
+          <button type="button" className="act primary" onClick={() => void apply()} disabled={working}>
+            {working ? "Applying…" : card.live ? `Apply to ${card.product} in Shopify` : "Apply to product description"}
           </button>
         </div>
       ) : (
         <motion.div className="fix-done" initial={reduce ? false : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}>
-          <span className="status ok">✓ Applied (demo copy)</span>
+          {applied.live ? (
+            <>
+              <span className="status ok">
+                ✓ Live on {applied.shop}
+                {applied.createdProduct ? " (demo product created)" : ""}
+              </span>
+              <a className="act" href={applied.adminUrl} target="_blank" rel="noreferrer">
+                View in Shopify admin ↗
+              </a>
+            </>
+          ) : (
+            <span className="status ok">✓ Applied (demo copy)</span>
+          )}
           <span className="muted">Measured next week against {card.holdouts.join(" and ")}.</span>
-          <button type="button" className="act" onClick={() => setState("draft")}>
-            Undo
+          <button type="button" className="act" onClick={() => void undo()} disabled={working}>
+            {working ? "Undoing…" : "Undo"}
           </button>
         </motion.div>
       )}
+      {error ? <p className="assistant-error">{error}</p> : null}
     </div>
   );
 }

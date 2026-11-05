@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import {
   ACTIONS,
+  applyFixLive,
+  clientCredentialsRunner,
+  liveStoreWrites,
+  undoFixLive,
   createAnswerProviders,
   DEMO_NORTHPINE_CATALOG,
   DEMO_SALES_SNAPSHOT,
@@ -20,19 +24,42 @@ const csvCell = (v: unknown) => {
 
 export async function POST(request: Request) {
   let id = "";
+  let body: Record<string, unknown> = {};
   try {
-    id = String(((await request.json()) as { id?: unknown }).id ?? "");
+    body = (await request.json()) as Record<string, unknown>;
+    id = String(body.id ?? "");
   } catch {
     /* empty body */
   }
-  if (!ACTIONS[id]) return NextResponse.json({ error: "Unknown action." }, { status: 400 });
+  // apply_fix and undo_fix come from the fix card's buttons, not from the model.
+  if (!ACTIONS[id] && id !== "apply_fix" && id !== "undo_fix") return NextResponse.json({ error: "Unknown action." }, { status: 400 });
   // Fixture answers on the demo catalog: no model call, so actions are instant and repeatable.
   const fixtureCheck = () => runAnswerCheck({ catalog: DEMO_NORTHPINE_CATALOG, providers: createAnswerProviders({}) });
+  const demoFix = async () => suggestFix({ sales: DEMO_SALES_SNAPSHOT, answerCheck: await fixtureCheck(), catalog: DEMO_NORTHPINE_CATALOG });
 
   try {
     switch (id) {
+      case "apply_fix": {
+        const s = await demoFix();
+        const product = DEMO_NORTHPINE_CATALOG.products.find(p => p.id === s?.productId);
+        if (!s || !product) return NextResponse.json({ error: "There is no fix to apply." }, { status: 400 });
+        if (!liveStoreWrites()) return NextResponse.json({ live: false });
+        const shop = process.env.SHOPIFY_SHOP!;
+        return NextResponse.json({ live: true, shop, ...(await applyFixLive(clientCredentialsRunner(), shop, s, product)) });
+      }
+      case "undo_fix": {
+        const s = await demoFix();
+        if (!s || !liveStoreWrites()) return NextResponse.json({ live: false });
+        const result = await undoFixLive(clientCredentialsRunner(), {
+          productId: String(body.productId ?? ""),
+          suggestion: s,
+          beforeHtml: String(body.beforeHtml ?? ""),
+          afterHtml: String(body.afterHtml ?? "")
+        });
+        return NextResponse.json({ live: true, result });
+      }
       case "draft_fix": {
-        const s = suggestFix({ sales: DEMO_SALES_SNAPSHOT, answerCheck: await fixtureCheck(), catalog: DEMO_NORTHPINE_CATALOG });
+        const s = await demoFix();
         if (!s) return NextResponse.json({ card: { type: "note", text: "Nothing to fix this week: AI gets no top seller wrong." } });
         const before = DEMO_NORTHPINE_CATALOG.products.find(p => p.id === s.productId)?.description ?? "";
         return NextResponse.json({
@@ -44,7 +71,9 @@ export async function POST(request: Request) {
             aiRevenue: s.evidence.aiRevenue,
             periodDays: s.evidence.periodDays,
             finding: s.evidence.findings[0] ?? null,
-            holdouts: s.holdouts.map(h => h.title)
+            holdouts: s.holdouts.map(h => h.title),
+            live: liveStoreWrites(),
+            shop: liveStoreWrites() ? process.env.SHOPIFY_SHOP : null
           }
         });
       }
