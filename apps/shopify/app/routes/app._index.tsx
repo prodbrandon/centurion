@@ -157,7 +157,7 @@ function Report({ view }: { view: AiSalesView }) {
         </s-stack>
       </s-section>
 
-      <s-section heading="Which AI sent them">
+      <s-section heading="Demand by AI agent">
         <s-table>
           <s-table-header-row>
             <s-table-header listSlot="primary">Assistant</s-table-header>
@@ -176,7 +176,7 @@ function Report({ view }: { view: AiSalesView }) {
         </s-table>
       </s-section>
 
-      <s-section heading="How shoppers used AI">
+      <s-section heading="Agent-assisted journeys">
         <s-table>
           <s-table-header-row>
             <s-table-header listSlot="primary">Path</s-table-header>
@@ -195,7 +195,7 @@ function Report({ view }: { view: AiSalesView }) {
         </s-table>
       </s-section>
 
-      <s-section heading="Products AI sells most">
+      <s-section heading="Products agents recommend most">
         <s-table>
           <s-table-header-row>
             <s-table-header listSlot="primary">Product</s-table-header>
@@ -214,7 +214,7 @@ function Report({ view }: { view: AiSalesView }) {
         </s-table>
       </s-section>
 
-      <s-section heading="AI revenue by week">
+      <s-section heading="AI revenue trajectory">
         <s-table>
           <s-table-header-row>
             <s-table-header listSlot="primary">Week of</s-table-header>
@@ -233,7 +233,7 @@ function Report({ view }: { view: AiSalesView }) {
         </s-table>
       </s-section>
 
-      <s-section heading="Every AI order, with proof">
+      <s-section heading="Attribution ledger: every AI order, with evidence">
         <s-stack gap="base">
           <s-paragraph>
             Each order shows exactly why we counted it, so you can check it in Shopify.{" "}
@@ -273,7 +273,7 @@ function Report({ view }: { view: AiSalesView }) {
         </s-stack>
       </s-section>
 
-      <s-section heading="Not counted, but worth watching">
+      <s-section heading="Unattributed signal: likely AI, not counted">
         <s-paragraph>
           {view.candidates.orders} orders ({money(view.candidates.revenue)}) came in “direct” straight to a product page. AI links
           often look like this when the referrer is stripped, but we can’t prove it, so we never count them as AI sales.

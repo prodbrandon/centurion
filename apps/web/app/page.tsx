@@ -86,7 +86,7 @@ export default async function AiSalesPage() {
 
       <div className="grid-2">
         <section className="card">
-          <h2>Which AI sent them</h2>
+          <h2>Demand by AI agent</h2>
           <div className="hbars">
             {r.by_source.map(s => (
               <div className="hbar-row" key={s.source} title={`${s.label}: ${money(s.revenue)} from ${s.orders} orders`}>
@@ -103,7 +103,7 @@ export default async function AiSalesPage() {
         </section>
 
         <section className="card">
-          <h2>AI revenue by week</h2>
+          <h2>AI revenue trajectory</h2>
           <div className="cols" role="img" aria-label={`Weekly AI revenue, from ${money(r.weekly[0].ai_revenue)} to ${money(r.weekly.at(-1)!.ai_revenue)}`}>
             {r.weekly.map(w => (
               <div className="col" key={w.week_start} tabIndex={0}>
@@ -145,7 +145,7 @@ export default async function AiSalesPage() {
 
       <div className="grid-2">
         <section className="card">
-          <h2>How shoppers used AI</h2>
+          <h2>Agent-assisted journeys</h2>
           {r.by_touch.map(t => (
             <div className="kv" key={t.touch}>
               <span>{TOUCH_WORDS[t.touch] ?? t.touch}</span>
@@ -157,7 +157,7 @@ export default async function AiSalesPage() {
         </section>
 
         <section className="card">
-          <h2>Products AI sells most</h2>
+          <h2>Products agents recommend most</h2>
           <table>
             <thead>
               <tr>
@@ -180,7 +180,7 @@ export default async function AiSalesPage() {
       </div>
 
       <section className="card">
-        <h2>Every AI order, with proof</h2>
+        <h2>Attribution ledger: every AI order, with evidence</h2>
         <p className="sub" style={{ marginBottom: 8 }}>
           Tap an order to see exactly why we counted it. You can check each one in Shopify.{" "}
           {r.by_evidence.map(e => `${EVIDENCE_WORDS[e.evidence] ?? e.evidence}: ${e.orders}`).join(" · ")}.
@@ -197,7 +197,7 @@ export default async function AiSalesPage() {
       </section>
 
       <section className="card">
-        <h2>Not counted, but worth watching</h2>
+        <h2>Unattributed signal: likely AI, not counted</h2>
         <p className="sub">
           {data.candidates.orders} orders ({money(data.candidates.revenue)}) came in “direct” straight to a product page. AI links
           often look like this when the referrer is stripped, but we can’t prove it, so we never count them as AI sales.
