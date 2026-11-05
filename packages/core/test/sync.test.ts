@@ -46,9 +46,9 @@ test("a report read back from Postgres equals the engine's direct output", async
 
   assert.deepEqual(loaded, direct);
   assert.deepEqual(saved, direct);
-  assert.equal(direct.report.ai.orders, 99);
-  assert.equal(await count(db, "orders"), 1500);
-  assert.equal(await count(db, "attributions"), 1500);
+  assert.equal(direct.report.ai.orders, 723);
+  assert.equal(await count(db, "orders"), 12000);
+  assert.equal(await count(db, "attributions"), 12000);
 });
 
 test("Shopify-style timestamps and totals give the same view after a round trip", async () => {
@@ -71,10 +71,10 @@ test("re-running upserts orders, and the latest run wins", async () => {
   await saveReportRun(db, { shop: SHOP, orders: sampleOrders.slice(0, 100), days: 90, now: NOW });
   const later = new Date(NOW.getTime() + 864e5);
   await saveReportRun(db, { shop: SHOP, orders: sampleOrders, days: 90, now: later });
-  assert.equal(await count(db, "orders"), 1500);
+  assert.equal(await count(db, "orders"), 12000);
   assert.equal(await count(db, "runs"), 2);
   const loaded = await loadLatestView(db, SHOP.domain);
-  assert.equal(loaded!.report.orders, 1500);
+  assert.equal(loaded!.report.orders, 12000);
   assert.equal(loaded!.generatedAt, later.toISOString());
 });
 
@@ -84,7 +84,7 @@ test("uninstall hides data, shop redact deletes it, customer redact deletes orde
 
   const removed = await redactOrders(db, SHOP.domain, [100463, "gid://shopify/Order/100374"]);
   assert.equal(removed, 2);
-  assert.equal(await count(db, "attributions"), 1498);
+  assert.equal(await count(db, "attributions"), 11998);
 
   await markShopUninstalled(db, SHOP.domain);
   assert.equal(await loadLatestView(db, SHOP.domain), null);

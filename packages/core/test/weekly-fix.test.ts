@@ -60,18 +60,18 @@ function mockAdmin(descriptions: Record<string, string>, reserialize: (html: str
 
 test("the rule picks the product with the most AI revenue that AI gets wrong, and fixes it with catalog facts", async () => {
   const s = suggestFix({ sales: demoView.report, answerCheck: await fixtureRun(), catalog: DEMO_NORTHPINE_CATALOG })!;
-  // Ridgeback ($4,914 from AI) beats the Trailhead jacket ($3,893); the tent sells more but AI gets nothing wrong about it.
+  // Ridgeback ($16,443 from AI) beats the Trailhead jacket ($14,198); the tent sells more but AI gets nothing wrong about it.
   assert.equal(s.productTitle, "Ridgeback 45L Pack");
   assert.equal(s.productId, "NP-RB45");
   assert.equal(s.addition, "Weight: 1.3 kg. Not ultralight.");
-  assert.equal(s.evidence.aiRevenue, 4914);
+  assert.equal(s.evidence.aiRevenue, 16443);
   assert.equal(s.evidence.periodDays, 90);
   assert.deepEqual(s.holdouts, [
-    { title: "Basecamp 2P Tent", aiRevenue: 5235 },
-    { title: "Trailhead 2 Down Jacket", aiRevenue: 3893 }
+    { title: "Basecamp 2P Tent", aiRevenue: 23034 },
+    { title: "Trailhead 2 Down Jacket", aiRevenue: 14198 }
   ]);
   assert.equal(s.explanationBy, "template");
-  assert.match(s.explanation, /\$4,914 of Ridgeback 45L Pack sales in the last 90 days/);
+  assert.match(s.explanation, /\$16,443 of Ridgeback 45L Pack sales in the last 90 days/);
   assert.match(s.explanation, /ChatGPT told a shopper “It’s an ultralight pack at about 0\.9 kg\.”|ChatGPT told a shopper “It's an ultralight pack at about 0\.9 kg\.”/);
 });
 
@@ -99,7 +99,7 @@ test("apply adds the text to the top of the description and records before and a
   assert.equal(applied.beforeHtml, "<p>A 45-liter pack.</p>");
   assert.equal(applied.afterHtml, `<p data-centurion-fix="${s.key}">Weight: 1.3 kg. Not ultralight.</p>\n<p>A 45-liter pack.</p>`);
   assert.equal(descriptions["NP-RB45"], applied.afterHtml);
-  assert.deepEqual(applied.baseline, { periodDays: 90, product: { title: "Ridgeback 45L Pack", aiRevenue: 4914 }, holdouts: s.holdouts });
+  assert.deepEqual(applied.baseline, { periodDays: 90, product: { title: "Ridgeback 45L Pack", aiRevenue: 16443 }, holdouts: s.holdouts });
   await assert.rejects(applyFix(admin, s, { writesEnabled: true }), /already on the product/);
 
   await undoFix(admin, applied, { writesEnabled: true });
@@ -172,16 +172,16 @@ test("Meta may reword the explanation, but never changes the suggestion, and the
   assert.deepEqual(await explainFix(s, {}), s, "no key: template");
 
   const reply = (text: string) => (async () => new Response(JSON.stringify({ completion_message: { content: { type: "text", text } } }), { status: 200 })) as unknown as typeof fetch;
-  const good = await explainFix(s, { META_API_KEY: "k" }, { fetch: reply("AI sold $4,914 of the Ridgeback 45L Pack, but told shoppers it weighs 0.9 kg. Your spec says 1.3 kg.") });
+  const good = await explainFix(s, { META_API_KEY: "k" }, { fetch: reply("AI sold $16,443 of the Ridgeback 45L Pack, but told shoppers it weighs 0.9 kg. Your spec says 1.3 kg.") });
   assert.equal(good.explanationBy, "meta");
   assert.equal(good.explanationBy, "meta");
   assert.deepEqual({ ...good, explanation: s.explanation, explanationBy: "template" }, s, "only the wording changed");
 
   const dropped = await explainFix(s, { META_API_KEY: "k" }, { fetch: reply("This pack has a problem.") });
   assert.deepEqual(dropped, s, "a rewrite that loses the numbers is ignored");
-  const changed = await explainFix(s, { META_API_KEY: "k" }, { fetch: reply("AI sold $4,914 of the Ridgeback 45L Pack, but said it weighs 0.8 kg. Your spec says 1.3 kg.") });
+  const changed = await explainFix(s, { META_API_KEY: "k" }, { fetch: reply("AI sold $16,443 of the Ridgeback 45L Pack, but said it weighs 0.8 kg. Your spec says 1.3 kg.") });
   assert.deepEqual(changed, s, "a rewrite that changes a number is ignored");
-  assert.equal(rewriteKeepsFacts(s, "AI sold $4,914 of the Ridgeback 45L Pack in 90 days; the spec says 1.3 kg."), true);
+  assert.equal(rewriteKeepsFacts(s, "AI sold $16,443 of the Ridgeback 45L Pack in 90 days; the spec says 1.3 kg."), true);
   const failing = await explainFix(s, { META_API_KEY: "k" }, { fetch: (async () => new Response("{}", { status: 500 })) as unknown as typeof fetch });
   assert.deepEqual(failing, s);
 });

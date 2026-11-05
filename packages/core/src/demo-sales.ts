@@ -11,33 +11,53 @@ export const DEMO_SALES_SNAPSHOT: SalesSnapshot = {
   "top_products": [
     {
       "title": "Basecamp 2P Tent",
-      "units": 15,
-      "revenue": 5235
+      "units": 66,
+      "revenue": 23034
     },
     {
       "title": "Ridgeback 45L Pack",
-      "units": 26,
-      "revenue": 4914
+      "units": 87,
+      "revenue": 16443
     },
     {
       "title": "Trailhead 2 Down Jacket",
-      "units": 17,
-      "revenue": 3893
+      "units": 62,
+      "revenue": 14198
     },
     {
       "title": "Switchback Trail Runner",
-      "units": 19,
-      "revenue": 2641
+      "units": 72,
+      "revenue": 10008
+    },
+    {
+      "title": "Ultralight 1P Tent",
+      "units": 20,
+      "revenue": 7480
+    },
+    {
+      "title": "Ridgeline Tarp",
+      "units": 18,
+      "revenue": 5112
     },
     {
       "title": "Cedar Merino Base Layer",
-      "units": 18,
-      "revenue": 1602
+      "units": 55,
+      "revenue": 4895
     },
     {
-      "title": "Summit Wool Beanie",
-      "units": 18,
-      "revenue": 576
+      "title": "Featherlite Quilt",
+      "units": 22,
+      "revenue": 3960
+    },
+    {
+      "title": "Basecamp 3P Tent",
+      "units": 24,
+      "revenue": 3936
+    },
+    {
+      "title": "Alpenglow Fleece",
+      "units": 16,
+      "revenue": 3584
     }
   ]
 };

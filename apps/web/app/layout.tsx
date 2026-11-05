@@ -35,7 +35,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </header>
           {sales.mode === "demo" ? (
             <p className="demo-banner">
-              <b>Demo mode.</b> A fictional outdoor brand with 90 days of sample orders. Nothing here touches a real store.
+              <b>Demo mode.</b> Northpine Outfitters, a fictional mid-market outdoor brand: 60 products, 237 SKUs, 12,000 orders over 90 days. Nothing here touches a real store.
             </p>
           ) : (
             <p className="demo-banner">
