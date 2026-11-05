@@ -29,11 +29,37 @@ const speechCtor = () => {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition;
 };
 
-const SCREENS: Record<string, string> = { "/": "AI Sales", "/checkout-test": "Checkout Test", "/answer-check": "Answer Check", "/weekly-fix": "Weekly Fix" };
+const SCREENS: Record<string, string> = { "/": "AI Revenue", "/checkout-test": "Agent Checkout", "/fix": "Fix AI Answers" };
 const OPEN_KEY = "centurion.assistant.open";
 const SIZE_KEY = "centurion.assistant.expanded";
 const SLASH = Object.fromEntries(COMMANDS.filter(c => c.slash).map(c => [c.slash!, c.id])) as Record<string, CommandId>;
 const ACTION_LABEL = Object.fromEntries(COMMANDS.map(c => [c.id, c.label])) as Record<string, string>;
+
+const CHATS_KEY = "centurion.assistant.chats";
+type SavedChat = { id: string; title: string; at: string; turns: Turn[] };
+const newId = () => Math.random().toString(36).slice(2, 10);
+/** Saved chats live in this browser only. CSV payloads are dropped to keep storage small. */
+const loadChats = (): SavedChat[] => {
+  try {
+    return JSON.parse(localStorage.getItem(CHATS_KEY) ?? "[]") as SavedChat[];
+  } catch {
+    return [];
+  }
+};
+const saveChats = (chats: SavedChat[]) => {
+  try {
+    localStorage.setItem(CHATS_KEY, JSON.stringify(chats.slice(0, 12)));
+  } catch {}
+};
+const titleOf = (turns: Turn[]) => {
+  const first = turns.find(t => t.role === "user" || t.role === "card");
+  return first?.role === "user" ? first.text : first?.role === "card" ? first.label.replace(/^New · /, "") : "Conversation";
+};
+const whenOf = (iso: string) => {
+  const d = new Date(iso);
+  const mins = Math.round((Date.now() - d.getTime()) / 60000);
+  return mins < 1 ? "just now" : mins < 60 ? `${mins} min ago` : d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+};
 
 const remember = (key: string, on: boolean) => {
   try {
@@ -69,6 +95,9 @@ export function Assistant({ suggestions, storeName }: { suggestions: string[]; s
   const [expanded, setExpanded] = useState(false);
   const [unread, setUnread] = useState(0);
   const [teaser, setTeaser] = useState<string | null>(null);
+  const [chatId, setChatId] = useState(newId);
+  const [chats, setChats] = useState<SavedChat[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const openRef = useRef(false);
   openRef.current = open;
   const rec = useRef<Recognition | null>(null);
@@ -81,7 +110,38 @@ export function Assistant({ suggestions, storeName }: { suggestions: string[]; s
     setVoiceOk(Boolean(speechCtor()));
     // The chat always starts hidden; only its size is remembered.
     setExpanded(recall(SIZE_KEY));
+    setChats(loadChats());
   }, []);
+
+  // Save the current conversation into the history as it grows.
+  useEffect(() => {
+    if (turns.length === 0) return;
+    const slim = turns.map(t => (t.role === "card" && t.card.type === "csv" ? { ...t, card: { ...t.card, csv: "" } } : t));
+    setChats(prev => {
+      const next = [{ id: chatId, title: titleOf(turns), at: new Date().toISOString(), turns: slim }, ...prev.filter(c => c.id !== chatId)];
+      saveChats(next);
+      return next;
+    });
+  }, [turns, chatId]);
+
+  function newChat() {
+    setTurns([]);
+    setChatId(newId());
+    setHistoryOpen(false);
+  }
+  function openChat(c: SavedChat) {
+    setChatId(c.id);
+    setTurns(c.turns);
+    setHistoryOpen(false);
+  }
+  function deleteChat(id: string) {
+    setChats(prev => {
+      const next = prev.filter(c => c.id !== id);
+      saveChats(next);
+      return next;
+    });
+    if (id === chatId) newChat();
+  }
 
   /** A reply or card that lands while the chat is closed raises a badge and a teaser on the launcher. */
   function notify(turn: Turn, text: string) {
@@ -218,7 +278,7 @@ export function Assistant({ suggestions, storeName }: { suggestions: string[]; s
       else if (id === "toggle_expand") {
         if (!open) show(true);
         toggleExpand();
-      } else if (id === "new_chat") setTurns([]);
+      } else if (id === "new_chat") newChat();
       else if (id === "voice") {
         if (!open) show(true);
         if (voiceOk && !busy) toggleVoice();
@@ -268,12 +328,24 @@ export function Assistant({ suggestions, storeName }: { suggestions: string[]; s
               <span className="assistant-model">Muse Spark · on {screen}</span>
               <div className="assistant-actions">
                 {turns.length > 0 && !busy ? (
-                  <button type="button" className="icon-btn ghost" onClick={() => setTurns([])} aria-label="New conversation" title="New conversation (n)">
+                  <button type="button" className="icon-btn ghost" onClick={newChat} aria-label="New conversation" title="New conversation (n)">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                       <path d="M12 5v14M5 12h14" />
                     </svg>
                   </button>
                 ) : null}
+                <button
+                  type="button"
+                  className={`icon-btn ghost${historyOpen ? " on" : ""}`}
+                  onClick={() => setHistoryOpen(o => !o)}
+                  aria-label="Previous chats"
+                  aria-expanded={historyOpen}
+                  title="Previous chats"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2" />
+                  </svg>
+                </button>
                 <button
                   type="button"
                   className="icon-btn ghost"
@@ -293,6 +365,44 @@ export function Assistant({ suggestions, storeName }: { suggestions: string[]; s
                 </button>
               </div>
             </div>
+
+            <AnimatePresence>
+              {historyOpen ? (
+                <motion.div
+                  key="history"
+                  className="history"
+                  initial={reduce ? false : { opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={reduce ? undefined : { opacity: 0, y: -6 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  <div className="history-head">
+                    <span>Previous chats</span>
+                    <button type="button" className="act" onClick={newChat}>
+                      + New chat
+                    </button>
+                  </div>
+                  {chats.length === 0 ? <p className="muted history-empty">No saved chats yet. Conversations are kept in this browser.</p> : null}
+                  <ul>
+                    {chats.map(c => (
+                      <li key={c.id} className={c.id === chatId ? "on" : ""}>
+                        <button type="button" className="history-item" onClick={() => openChat(c)}>
+                          <span className="history-title">{c.title}</span>
+                          <span className="history-meta">
+                            {whenOf(c.at)} · {c.turns.length} messages
+                          </span>
+                        </button>
+                        <button type="button" className="icon-btn ghost" onClick={() => deleteChat(c.id)} aria-label={`Delete chat ${c.title}`}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                            <path d="M6 6l12 12M18 6L6 18" />
+                          </svg>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
 
             <div className="assistant-log" ref={log} aria-live="polite">
               {turns.length === 0 && !busy ? (
@@ -392,7 +502,14 @@ export function Assistant({ suggestions, storeName }: { suggestions: string[]; s
                     <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
                   </svg>
                 </button>
-              ) : null}
+              ) : (
+                <button type="button" className="icon-btn" disabled title="Voice needs Chrome, Edge or Safari" aria-label="Voice input needs Chrome, Edge or Safari">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                    <rect x="9" y="3" width="6" height="11" rx="3" />
+                    <path d="M5 11a7 7 0 0 0 14 0M12 18v3M3 3l18 18" />
+                  </svg>
+                </button>
+              )}
               <button type="submit" className="btn" disabled={busy || !draft.trim()}>
                 Ask
               </button>

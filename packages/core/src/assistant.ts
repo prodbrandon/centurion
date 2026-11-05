@@ -20,6 +20,9 @@ export interface AssistantContext {
 }
 
 const SCREEN_GUIDE: Record<string, string> = {
+  "AI Revenue": "an explorer of AI-attributed revenue (filter by agent, week or product): KPIs, revenue trajectory, demand by AI agent with journey mix, journeys and proof types, products agents recommend by units, the attribution ledger and the unattributed signal",
+  "Fix AI Answers": "wrong AI answers ranked by the product's AI revenue, each with what AI said, the catalog fact and its source, and this week's fix ready to apply to the store",
+  "Agent Checkout": "an animated replay of an AI shopping agent going to checkout step by step (never pays), with where agents get stuck and the fix",
   "AI Sales": "AI-attributed revenue with proof: demand by AI agent, revenue trajectory by week, agent-assisted journeys, products agents recommend, the attribution ledger of every AI order and the unattributed signal",
   "Answer Check": "questions shoppers ask AI about the store, each AI answer compared with the catalog by fixed rules; wrong answers show what AI said vs the catalog fact and its source",
   "Checkout Test": "an AI shopping agent walks the store to checkout step by step (never pays) and reports where agents get stuck",
@@ -100,7 +103,7 @@ export const ASSISTANT_SYSTEM_PROMPT =
   "You are Centurion, an AI commerce analyst inside a Shopify merchant's admin. You help the merchant understand and grow the sales that AI assistants (ChatGPT, Perplexity, Gemini, Copilot, Meta AI) send their store. " +
   "Answer ONLY from the STORE DATA below. Quote the exact numbers you rely on. If the data does not answer the question, say what is missing and which Centurion screen or report would answer it; never invent numbers. " +
   "Be direct and brief: lead with the answer in one sentence, then at most 4 short bullets of evidence or next steps. Plain text, no tables, no headings, no quotation marks around numbers. Months at the edge of the period may be partial; say so when comparing them. " +
-  "AI-attributed orders are only counted with proof (UTM tags, referrers, AI checkout channels); 'not counted' orders are possible but unproven. You cannot change the store; when an action would help, recommend it and name the screen (AI Sales, Answer Check, Checkout Test, Weekly Fix).";
+  "AI-attributed orders are only counted with proof (UTM tags, referrers, AI checkout channels); 'not counted' orders are possible but unproven. You cannot change the store; when an action would help, recommend it and name the screen (AI Revenue, Fix AI Answers, Agent Checkout).";
 
 /** Asks Meta Muse Spark one question about the store. Never logs or returns the key. */
 export async function askAssistant(input: {
@@ -226,9 +229,9 @@ export const ACTIONS: Record<string, { label: string; description: string }> = {
   run_answer_check: { label: "Run Answer Check", description: "ask AI assistants about the products and list wrong answers" },
   watch_checkout: { label: "Watch an AI agent buy", description: "replay an AI shopping agent going to checkout, step by step" },
   export_ai_orders: { label: "Export AI orders (CSV)", description: "download every AI-attributed order with its proof" },
-  open_ai_sales: { label: "Open AI Sales", description: "go to the AI Sales screen" },
-  open_answer_check: { label: "Open Answer Check", description: "go to the Answer Check screen" },
-  open_weekly_fix: { label: "Open Weekly Fix", description: "go to the Weekly Fix screen" }
+  open_ai_sales: { label: "Open AI Revenue", description: "go to the AI Revenue explorer" },
+  open_answer_check: { label: "Open Fix AI Answers", description: "go to the screen listing wrong AI answers and their fixes" },
+  open_weekly_fix: { label: "Open Fix AI Answers", description: "go to this week's fix, ready to apply" }
 };
 
 export interface AssistantReply {

@@ -102,7 +102,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ card: { type: "csv", filename: `ai-orders-${view?.report.period.to ?? "export"}.csv`, rows: rows.length, csv } });
       }
       default: {
-        const href = { open_ai_sales: "/", open_answer_check: "/answer-check", open_weekly_fix: "/weekly-fix" }[id] ?? "/";
+        const href = { open_ai_sales: "/", open_answer_check: "/fix", open_weekly_fix: "/fix" }[id] ?? "/";
         return NextResponse.json({ card: { type: "navigate", href, label: ACTIONS[id]!.label } });
       }
     }

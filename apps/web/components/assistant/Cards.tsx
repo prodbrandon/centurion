@@ -166,7 +166,7 @@ async function post(body: Record<string, unknown>) {
   return data;
 }
 
-function FixCard({ card }: { card: Extract<Card, { type: "fix" }> }) {
+export function FixCard({ card }: { card: Extract<Card, { type: "fix" }> }) {
   const [applied, setApplied] = useState<Applied | null>(null);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);

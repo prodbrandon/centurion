@@ -4,10 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS = [
-  { href: "/", label: "AI Sales", short: "AI Sales" },
-  { href: "/checkout-test", label: "Checkout Test", short: "Checkout" },
-  { href: "/answer-check", label: "Answer Check", short: "Answers" },
-  { href: "/weekly-fix", label: "Weekly Fix", short: "Fix" }
+  { href: "/", label: "AI Revenue", short: "Revenue" },
+  { href: "/fix", label: "Fix AI Answers", short: "Fix" },
+  { href: "/checkout-test", label: "Agent Checkout", short: "Checkout" }
 ];
 
 export function Tabs() {

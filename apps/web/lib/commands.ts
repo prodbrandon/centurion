@@ -10,7 +10,6 @@ export type CommandId =
   | "export_ai_orders"
   | "go_sales"
   | "go_checkout"
-  | "go_answers"
   | "go_fix"
   | "palette"
   | "help";
@@ -35,14 +34,13 @@ export const COMMANDS: Command[] = [
   { id: "run_answer_check", label: "Run Answer Check", keys: "r", slash: "/check", group: "Actions" },
   { id: "watch_checkout", label: "Watch an AI agent buy", keys: "w", slash: "/checkout", group: "Actions" },
   { id: "export_ai_orders", label: "Export AI orders (CSV)", keys: "x", slash: "/export", group: "Actions" },
-  { id: "go_sales", label: "Go to AI Sales", keys: "g s", group: "Go to" },
-  { id: "go_checkout", label: "Go to Checkout Test", keys: "g c", group: "Go to" },
-  { id: "go_answers", label: "Go to Answer Check", keys: "g a", group: "Go to" },
-  { id: "go_fix", label: "Go to Weekly Fix", keys: "g w", group: "Go to" },
+  { id: "go_sales", label: "Go to AI Revenue", keys: "g r", group: "Go to" },
+  { id: "go_fix", label: "Go to Fix AI Answers", keys: "g f", group: "Go to" },
+  { id: "go_checkout", label: "Go to Agent Checkout", keys: "g c", group: "Go to" },
   { id: "help", label: "Show keyboard shortcuts", keys: "?", slash: "/help", group: "Help" }
 ];
 
-export const ROUTES: Partial<Record<CommandId, string>> = { go_sales: "/", go_checkout: "/checkout-test", go_answers: "/answer-check", go_fix: "/weekly-fix" };
+export const ROUTES: Partial<Record<CommandId, string>> = { go_sales: "/", go_checkout: "/checkout-test", go_fix: "/fix" };
 /** Commands that run inside the chat as actions (the same ids as the server's ACTIONS). */
 export const CHAT_ACTIONS: CommandId[] = ["draft_fix", "run_answer_check", "watch_checkout", "export_ai_orders"];
 
