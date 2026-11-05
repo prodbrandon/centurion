@@ -14,25 +14,44 @@ const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
 /** A real run of the checkout agent (packages/checkout-test) on its local test page, committed as data. */
 export default function CheckoutTestPage() {
   const total = new Date(run.finishedAt).getTime() - new Date(run.startedAt).getTime();
-  const outcome =
-    run.result === "reached_checkout"
-      ? `Reached checkout in ${run.steps.length} steps and stopped before payment.`
-      : `Blocked at step ${run.failedStep}.`;
 
   return (
     <div className="stack">
-      <section className="hero">
-        <p className="eyebrow">Agent Checkout Test · {shortDate(run.startedAt)} · test page</p>
-        <p className="hero-number">
-          {run.problems} {run.problems === 1 ? "problem" : "problems"}
-        </p>
-        <p>A scripted shopping agent tried to buy from the test store. {outcome}</p>
+      <section className="page-head">
+        <div>
+          <h1>Agent Checkout</h1>
+          <p className="sub">Can an AI shopping agent buy from your store? Where it gets stuck, and the fix for each problem.</p>
+        </div>
+        <span className="tag">{shortDate(run.startedAt)} · test page</span>
       </section>
 
-      <span className="preview">
-        Test-page run · a real run of the checkout agent on a local practice store (popup and unlabeled size picker switched on), not on
-        Northpine or any real shop.
-      </span>
+      <div className="kpis">
+        <div className="kpi">
+          <span className="kpi-label">Result</span>
+          <b>{run.result === "reached_checkout" ? "Reached checkout" : `Blocked at step ${run.failedStep}`}</b>
+          <span className="kpi-sub">stopped before payment</span>
+        </div>
+        <div className="kpi">
+          <span className="kpi-label">Problems</span>
+          <b className={run.problems ? "badn" : ""}>{run.problems}</b>
+          <span className="kpi-sub">steps that slowed or blocked the agent</span>
+        </div>
+        <div className="kpi">
+          <span className="kpi-label">Steps</span>
+          <b>{run.steps.length}</b>
+          <span className="kpi-sub">{run.query ? `searched “${run.query}”` : "from home page"}</span>
+        </div>
+        <div className="kpi">
+          <span className="kpi-label">Run time</span>
+          <b>{seconds(total)}</b>
+          <span className="kpi-sub">{run.blockedRequests.length ? `${run.blockedRequests.length} payment requests blocked` : "no payment attempted"}</span>
+        </div>
+      </div>
+
+      <p className="note">
+        Recorded run of the checkout agent on a local practice store with a popup and an unlabeled size picker switched on, not on Northpine or a
+        real shop.
+      </p>
 
       <section className="card">
         <h2>Watch the agent shop</h2>
@@ -42,16 +61,6 @@ export default function CheckoutTestPage() {
         <AgentReplay run={run} />
       </section>
 
-      <section className="card">
-        <h2>The recording</h2>
-        <div className="video">
-          The worker records a video of every run (Playwright, saved next to the worker). Videos stay on the machine that ran the test and
-          aren’t published with this demo.
-        </div>
-        <p className="muted" style={{ marginTop: 8 }}>
-          Agent: {run.agent}. Run time {seconds(total)}.{run.query ? ` Shopper looked for “${run.query}”.` : ""}
-        </p>
-      </section>
 
       <section className="card">
         <h2>Step by step</h2>

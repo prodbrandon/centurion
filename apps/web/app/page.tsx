@@ -1,5 +1,5 @@
 import { SalesExplorer } from "@/components/SalesExplorer";
-import { getAiSales, money, shortDate } from "@/lib/data";
+import { getAiSales, shortDate } from "@/lib/data";
 
 const listWords = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
 
@@ -29,17 +29,15 @@ export default async function AiSalesPage() {
 
   return (
     <div className="stack">
-      <section className="hero">
-        <p className="eyebrow">
-          AI Revenue · {shortDate(r.period.from)} to {shortDate(r.period.to)}
-        </p>
-        <p className="hero-number num">{money(r.ai.revenue)}</p>
-        <p>
-          from {r.ai.orders} orders that {listWords(r.by_source.map(s => s.label)) || "AI assistants"} sent you. That’s{" "}
-          {r.ai.share_of_revenue}% of revenue.
-        </p>
+      <section className="page-head">
+        <div>
+          <h1>AI Revenue</h1>
+          <p className="sub">
+            Orders that {listWords(r.by_source.map(s => s.label)) || "AI assistants"} sent you, each with proof. {shortDate(r.period.from)} to {shortDate(r.period.to)}.
+          </p>
+        </div>
+        <span className="tag">AI source list v{data.signaturesVersion}</span>
       </section>
-
       <SalesExplorer view={data} />
     </div>
   );

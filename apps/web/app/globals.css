@@ -419,3 +419,32 @@ a.act { text-decoration: none; }
 .dist-dot.mix-first, .dist-fill.mix-first { background: #6366f1; }
 .dist-dot.mix-last, .dist-fill.mix-last { background: #02b8cc; }
 .dist-dot.mix-checkout, .dist-fill.mix-checkout { background: #8b5cf6; }
+
+/* Utilitarian type scale: one size set for every screen */
+h1 { font-size: 24px; line-height: 1.25; letter-spacing: -0.012em; }
+h2, .card h2 { font-size: 17px; line-height: 1.35; letter-spacing: -0.011em; }
+.sub { font-size: 14px; }
+.card { padding: 20px; }
+.hero { padding: 20px 24px; }
+.hero .eyebrow { font-size: 12px; }
+.hero-number { font-size: 40px; margin: 6px 0 4px; letter-spacing: -0.02em; }
+@media (max-width: 480px) { .hero-number { font-size: 32px; } }
+.hero p { font-size: 14px; }
+.kpi b { font-size: 22px; }
+.kpi b.badn { color: var(--bad); }
+.page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.page-head .sub { margin-top: 4px; }
+.tag { font-family: var(--font-mono), ui-monospace, monospace; font-size: 11px; color: var(--muted); background: rgba(255, 255, 255, 0.05); border-radius: 4px; padding: 3px 8px; white-space: nowrap; }
+.note { font-size: 12px; color: var(--muted); border-left: 2px solid var(--warn); padding: 2px 0 2px 10px; }
+.mono { font-family: var(--font-mono), ui-monospace, monospace; font-size: 13px; color: var(--ink); }
+td code { font-family: var(--font-mono), ui-monospace, monospace; font-size: 12px; color: var(--mist); }
+.range { margin-top: 16px; }
+.range-bar { display: flex; height: 10px; border-radius: 3px; overflow: hidden; background: var(--obsidian); }
+.range-bar .range-proven { display: block; background: var(--acid-lime); }
+.range-bar .range-possible { flex: 1; background: repeating-linear-gradient(135deg, var(--graphite) 0 6px, var(--obsidian) 6px 12px); }
+.range-legend { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+.range-legend b { color: var(--ink); font-weight: 510; margin-left: 4px; font-variant-numeric: tabular-nums; }
+.range-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
+.range-legend i.range-proven { background: var(--acid-lime); }
+.range-legend i.range-possible { background: var(--graphite); }
+.preview { font-weight: 400; }

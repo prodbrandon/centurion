@@ -34,24 +34,47 @@ export default async function FixAnswersPage() {
 
   return (
     <div className="stack">
-      <section className="hero">
-        <p className="eyebrow">Fix AI Answers · {run.asked} shopper questions checked</p>
-        <p className="hero-number num">{usd(atRisk)}</p>
-        <p>
-          of AI revenue comes from products AI assistants describe wrongly. {run.contradictions} of {run.asked} answers contradict your catalog; {run.consistent}{" "}
-          match it. Every row below shows what AI said, what your catalog says, and where that fact comes from.
-        </p>
+      <section className="page-head">
+        <div>
+          <h1>Fix AI Answers</h1>
+          <p className="sub">Wrong AI answers ranked by the AI revenue at stake. Fix the top one in a click.</p>
+        </div>
+        <span className="tag">{run.asked} shopper questions checked</span>
       </section>
 
-      <span className="preview">
-        Sample answers · written stand-ins for ChatGPT, Perplexity, Gemini and Meta Muse Spark about the fictional Northpine store. The catalog
-        facts, sources, AI revenue and the comparison are real outputs of the engine.
-      </span>
+      <div className="kpis">
+        <div className="kpi">
+          <span className="kpi-label">AI revenue at stake</span>
+          <b>{usd(atRisk)}</b>
+          <span className="kpi-sub">on products AI describes wrongly</span>
+        </div>
+        <div className="kpi">
+          <span className="kpi-label">Wrong answers</span>
+          <b className="badn">{run.contradictions}</b>
+          <span className="kpi-sub">of {run.asked} checked</span>
+        </div>
+        <div className="kpi">
+          <span className="kpi-label">Matched your catalog</span>
+          <b>{run.consistent}</b>
+          <span className="kpi-sub">{run.noAnswer} didn’t answer</span>
+        </div>
+        <div className="kpi">
+          <span className="kpi-label">Affected</span>
+          <b>{rows.length}</b>
+          <span className="kpi-sub">
+            {rows.filter(r => r.sold).length} products · {rows.filter(r => !r.sold).length} policies
+          </span>
+        </div>
+      </div>
+
+      <p className="note">
+        Answers are labeled samples standing in for ChatGPT, Perplexity, Gemini and Meta Muse Spark. Catalog facts, sources, AI revenue and the
+        comparison are computed by the engine.
+      </p>
 
       {fix ? (
         <Reveal>
           <section className="card spotlight">
-            <p className="eyebrow">This week’s fix · highest AI revenue at stake</p>
             <FixCard
               card={{
                 type: "fix",

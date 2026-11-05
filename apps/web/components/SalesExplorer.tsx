@@ -279,10 +279,57 @@ export function SalesExplorer({ view }: { view: AiSalesView }) {
         </section>
 
         <section className="card">
-          <h2>Unattributed signal: likely AI, not counted</h2>
-          <p className="sub">
-            {num(view.candidates.orders)} orders ({usd(view.candidates.revenue)}) arrived “direct” straight to a product page. AI links often look like this when
-            the referrer is stripped, but there’s no proof, so they are never counted as AI revenue.
+          <div className="card-head">
+            <h2>Unattributed signal</h2>
+            <span className="tag">Not counted as AI revenue</span>
+          </div>
+          <p className="sub card-sub">
+            Orders whose first visit landed directly on a product page with no referrer. AI links often arrive this way when the referrer is
+            stripped, but there is no proof, so Centurion reports them separately and never adds them to AI revenue.
+          </p>
+          <div className="kpis">
+            <Kpi label="Unproven orders" value={num(view.candidates.orders)} sub={`${pct(view.candidates.orders, r.orders)} of all orders`} />
+            <Kpi label="Their revenue" value={usd(view.candidates.revenue)} sub={`${pct(view.candidates.revenue, r.revenue)} of store revenue`} />
+            <Kpi label="Average order" value={usd(view.candidates.orders ? view.candidates.revenue / view.candidates.orders : 0)} sub={`vs ${usd(r.ai.avg_order_value)} proven AI`} />
+            <Kpi label="Size vs proven AI" value={`${(view.candidates.revenue / r.ai.revenue).toFixed(2)}×`} sub="unproven ÷ proven AI revenue" />
+          </div>
+          <div className="range" aria-label={`Proven AI revenue ${usd(r.ai.revenue)}; if every unproven order were AI, up to ${usd(r.ai.revenue + view.candidates.revenue)}`}>
+            <div className="range-bar">
+              <motion.span className="range-proven" initial={reduce ? false : { width: 0 }} whileInView={{ width: `${(r.ai.revenue / (r.ai.revenue + view.candidates.revenue)) * 100}%` }} viewport={{ once: true }} transition={{ duration: 0.6, ease: EASE }} />
+              <span className="range-possible" />
+            </div>
+            <div className="range-legend">
+              <span>
+                <i className="range-proven" /> Proven AI revenue <b>{usd(r.ai.revenue)}</b>
+              </span>
+              <span>
+                <i className="range-possible" /> Ceiling if every unproven order were AI <b>{usd(r.ai.revenue + view.candidates.revenue)}</b>
+              </span>
+            </div>
+          </div>
+          <h3 className="mini-h">Sample unproven orders</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Landed on</th>
+                <th className="r">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {view.candidates.examples.map(e => (
+                <tr key={e.name}>
+                  <td className="mono">{e.name}</td>
+                  <td>
+                    <code>{e.proof[0]?.match(/\/products\/[\w-]+/)?.[0] ?? e.proof[0]}</code>
+                  </td>
+                  <td className="r num">{usd(e.total)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="muted" style={{ marginTop: 10 }}>
+            To turn these into proven AI revenue, add utm_source tags to links you give AI assistants and product feeds.
           </p>
         </section>
       </div>
