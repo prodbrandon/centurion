@@ -1,12 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { DM_Sans, Space_Grotesk } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
 import { Tabs } from "@/components/Tabs";
 import { getAiSales } from "@/lib/data";
 import "./globals.css";
 
-const body = DM_Sans({ subsets: ["latin"], variable: "--font-body" });
-const display = Space_Grotesk({ subsets: ["latin"], weight: ["500", "700"], variable: "--font-display" });
+const body = Inter({ subsets: ["latin"], variable: "--font-body" });
+const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
   title: "Centurion",
@@ -20,7 +20,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const storeName = sales.view?.store.name ?? (sales.mode === "live" ? sales.shop : "");
 
   return (
-    <html lang="en" className={`${body.variable} ${display.variable}`}>
+    <html lang="en" className={`${body.variable} ${mono.variable}`}>
       <body>
         <div className="shell">
           <header className="topbar">
